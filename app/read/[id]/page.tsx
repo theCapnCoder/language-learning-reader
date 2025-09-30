@@ -115,7 +115,7 @@ export default function ReadBookPage() {
     );
   }
 
-  const truncateTitle = (title: string, maxLength: number = 50) => {
+  const truncateTitle = (title: string, maxLength: number = 20) => {
     if (title.length <= maxLength) return title;
     return title.substring(0, maxLength) + '...';
   };
