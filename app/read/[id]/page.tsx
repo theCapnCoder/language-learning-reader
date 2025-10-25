@@ -135,7 +135,7 @@ export default function ReadBookPage() {
             {truncateTitle(book.title)}
           </h1>
           <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-            <span>{book.wordCount.toLocaleString()} слов</span>
+            <span>{(book.wordCount || 0).toLocaleString()} слов</span>
             <span>•</span>
             <div className="flex items-center gap-1">
               <BarChart3 className="h-4 w-4" />

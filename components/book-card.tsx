@@ -144,7 +144,7 @@ export function BookCard({ book, onDelete }: BookCardProps) {
             <h3 className="font-semibold text-lg text-balance leading-tight mb-2">{book.title}</h3>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>{book.wordCount.toLocaleString()} слов</span>
+              <span>{book.wordCount ? book.wordCount.toLocaleString() : '0'} слов</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
