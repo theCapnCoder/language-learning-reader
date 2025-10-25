@@ -1,4 +1,3 @@
-// Groq API integration for translation services
 export interface GroqResponse {
   choices: Array<{
     message: {
@@ -16,8 +15,16 @@ export class GroqAPI {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
     }
 
-    const prompt = `Переведи на русский язык слово "${word}" в контексте предложения "${sentence}". Объясни значение слова, учитывая контекст, и если это фразовый глагол, дай его значение с учетом других слов в предложении.`
+    const currentLanguage =
+      typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
 
+    let prompt: string
+
+    if (currentLanguage === "de") {
+      prompt = `Переведи на русский язык слово "${word}" в контексте предложения "${sentence}".  Объясни значение этого слова с учетом контекста.  Если у глагола отделяемая или неотделяемая приставка, укажи это и объясни значение. Если это идиома, объясни её значение, учитывая контекст предложения.`
+    } else {
+      prompt = `Переведи на русский язык слово "${word}" в контексте предложения "${sentence}".  Объясни значение этого слова с учетом контекста.  Если это фразовый глагол, укажи его значение, учитывая другие слова в предложении.`
+    }
     try {
       const response = await fetch(this.API_URL, {
         method: "POST",
@@ -53,7 +60,18 @@ export class GroqAPI {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
     }
 
-    const prompt = `Переведи на русский язык предложение: "${sentence}". Дай только перевод без дополнительных объяснений.`
+    const currentLanguage =
+      typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
+
+    let prompt: string
+
+    if (currentLanguage === "de") {
+      prompt = `Переведи на русский язык: "${sentence}". 
+Дай только перевод без дополнительных объяснений.`
+    } else {
+      prompt = `Переведи на русский язык: "${sentence}". 
+Дай только перевод без дополнительных объяснений.`
+    }
 
     try {
       const response = await fetch(this.API_URL, {
