@@ -176,7 +176,7 @@ export default function ReadBookPage() {
       {/* <CardContent className="p-8"> */}
       <div
         ref={contentRef}
-        className="reading-content break-words overflow-wrap-anywhere max-w-full max-h-[82vh] overflow-y-auto"
+        className="reading-content break-words overflow-wrap-anywhere max-w-full"
         style={{ fontSize: `${fontSize}px` }}
         onScroll={handleScroll}
       >
