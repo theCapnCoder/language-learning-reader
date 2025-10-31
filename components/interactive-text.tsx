@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Languages, X, Plus } from 'lucide-react';
@@ -12,6 +12,9 @@ interface InteractiveTextProps {
   knownWords: Set<string>;
   highlightColor: string;
   onWordsUpdated?: () => void;
+  sentenceTranslations: Map<string, string>;
+  loadingSentences: Set<string>;
+  onTranslateSentence: (sentence: string) => void;
 }
 
 interface Translation {
@@ -31,10 +34,12 @@ export function InteractiveText({
   knownWords,
   highlightColor,
   onWordsUpdated,
+  sentenceTranslations,
+  loadingSentences,
+  onTranslateSentence,
 }: InteractiveTextProps) {
   const [translation, setTranslation] = useState<Translation | null>(null);
-  const [sentenceTranslations, setSentenceTranslations] = useState<SentenceTranslation[]>([]);
-  const [loadingSentences, setLoadingSentences] = useState<Set<string>>(new Set());
+  // No need for local state since we're using props now
 
   const handleWordClick = useCallback(async (word: string, sentence: string) => {
     const settings = LocalDB.getSettings();
@@ -94,47 +99,42 @@ export function InteractiveText({
     onWordsUpdated?.();
   }, [translation?.word, onWordsUpdated]);
 
-  const handleSentenceTranslate = useCallback(
-    async (sentence: string) => {
-      const settings = LocalDB.getSettings();
+  const handleSentenceTranslate = useCallback((sentence: string) => {
+    onTranslateSentence(sentence);
+  }, [onTranslateSentence]);
 
-      if (!settings.groqApiKey) {
-        return;
-      }
+  // Компонент кнопки перевода предложения с мемоизацией по предложению
+  const TranslateButton = useCallback(({ sentence }: { sentence: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="ml-1 h-6 w-6 p-0 opacity-50 hover:opacity-100 transition-opacity"
+      onClick={(e) => {
+        e.stopPropagation();
+        handleSentenceTranslate(sentence);
+      }}
+    >
+      <Languages className="h-3 w-3" />
+    </Button>
+  ), [handleSentenceTranslate]);
 
-      // Check if already translated or loading
-      if (
-        sentenceTranslations.some((st) => st.sentence === sentence) ||
-        loadingSentences.has(sentence)
-      ) {
-        return;
-      }
+  // Мемоизированный компонент загрузки
+  const LoadingSpinner = useCallback(() => (
+    <Loader2 className="inline h-3 w-3 ml-1 animate-spin opacity-50" />
+  ), []);
 
-      setLoadingSentences((prev) => new Set(prev).add(sentence));
+  // Мемоизированный компонент перевода
+  const TranslationText = useCallback(({ translation }: { translation: string }) => (
+    <span className="text-muted-foreground text-sm italic ml-2 inline">
+      {translation}
+    </span>
+  ), []);
 
-      try {
-        const translationContent = await GroqAPI.translateSentence(sentence, settings.groqApiKey);
-        setSentenceTranslations((prev) => [...prev, { sentence, translation: translationContent }]);
-      } catch (error) {
-        console.error('Translation error:', error);
-      } finally {
-        setLoadingSentences((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(sentence);
-          return newSet;
-        });
-      }
-    },
-    [sentenceTranslations, loadingSentences]
-  );
 
   const renderedText = useMemo(() => {
     const lines = content.split('\n');
 
     return lines.map((line, lineIndex) => {
-      // if (!line.trim()) {
-      //   return <br key={lineIndex} />;
-      // }
       const sentences = line.split(/([.!?]+)/).filter((part) => part.trim());
 
       return (
@@ -142,35 +142,24 @@ export function InteractiveText({
           {sentences.map((part, sentenceIndex) => {
             if (/^[.!?]+$/.test(part)) {
               const prevSentenceIndex = sentenceIndex - 1;
-              const prevSentence =
-                prevSentenceIndex >= 0 ? sentences[prevSentenceIndex]?.trim() : '';
+              const prevSentence = prevSentenceIndex >= 0 ? sentences[prevSentenceIndex]?.trim() : '';
+              
+              if (!prevSentence) {
+                return <span key={sentenceIndex}>{part}</span>;
+              }
+
+              const isTranslating = loadingSentences.has(prevSentence);
+              const translation = sentenceTranslations.get(prevSentence);
+
               return (
                 <span key={sentenceIndex}>
                   {part}
-                  {prevSentence && (
-                    <>
-                      {loadingSentences.has(prevSentence) ? (
-                        <Loader2 className="inline h-3 w-3 ml-1 animate-spin opacity-50" />
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-1 h-6 w-6 p-0 opacity-50 hover:opacity-100 transition-opacity"
-                          onClick={() => handleSentenceTranslate(prevSentence)}
-                        >
-                          <Languages className="h-3 w-3" />
-                        </Button>
-                      )}
-                      {sentenceTranslations.find((st) => st.sentence === prevSentence) && (
-                        <span className="text-muted-foreground text-sm italic ml-2 inline">
-                          {
-                            sentenceTranslations.find((st) => st.sentence === prevSentence)
-                              ?.translation
-                          }
-                        </span>
-                      )}
-                    </>
+                  {isTranslating ? (
+                    <LoadingSpinner />
+                  ) : (
+                    <TranslateButton sentence={prevSentence} />
                   )}
+                  {translation && <TranslationText translation={translation} />}
                 </span>
               );
             }
