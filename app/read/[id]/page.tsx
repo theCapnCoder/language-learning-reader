@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -8,6 +8,7 @@ import { InteractiveText } from '@/components/interactive-text';
 import { ReadingControls } from '@/components/reading-controls';
 import { ArrowLeft, BookOpen, BarChart3 } from 'lucide-react';
 import { LocalDB } from '@/lib/db';
+import { GroqAPI } from '@/lib/groq-api';
 import type { Book, ReadingProgress } from '@/lib/db';
 
 export default function ReadBookPage() {
@@ -22,6 +23,8 @@ export default function ReadBookPage() {
   const [highlightColor, setHighlightColor] = useState('#3b82f6');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [readingProgress, setReadingProgress] = useState(0);
+  const [sentenceTranslations, setSentenceTranslations] = useState<Map<string, string>>(new Map());
+  const [loadingSentences, setLoadingSentences] = useState<Set<string>>(new Set());
 
   const loadBookData = () => {
     // Load book
@@ -92,6 +95,39 @@ export default function ReadBookPage() {
   const handleWordsUpdated = () => {
     loadBookData();
   };
+
+  const handleTranslateSentence = useCallback(async (sentence: string) => {
+    if (!sentence || loadingSentences.has(sentence)) return;
+
+    const settings = LocalDB.getSettings();
+    if (!settings.groqApiKey) {
+      alert('API ключ Groq не настроен. Перейдите в настройки для его добавления.');
+      return;
+    }
+
+    setLoadingSentences(prev => {
+      const newSet = new Set(prev);
+      newSet.add(sentence);
+      return newSet;
+    });
+
+    try {
+      const translation = await GroqAPI.translateSentence(sentence, settings.groqApiKey);
+      setSentenceTranslations(prev => {
+        const newMap = new Map(prev);
+        newMap.set(sentence, translation);
+        return newMap;
+      });
+    } catch (error) {
+      console.error('Ошибка перевода предложения:', error);
+    } finally {
+      setLoadingSentences(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(sentence);
+        return newSet;
+      });
+    }
+  }, [loadingSentences]);
 
   const handleHighlightColorChange = (color: string) => {
     setHighlightColor(color);
@@ -185,6 +221,9 @@ export default function ReadBookPage() {
           knownWords={knownWords}
           highlightColor={highlightColor}
           onWordsUpdated={handleWordsUpdated}
+          sentenceTranslations={sentenceTranslations}
+          loadingSentences={loadingSentences}
+          onTranslateSentence={handleTranslateSentence}
         />
       </div>
       {/* </CardContent> */}
