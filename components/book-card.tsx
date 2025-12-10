@@ -1,97 +1,97 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import { useState } from 'react';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import Link from "next/link"
+import { useState } from "react"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { BookOpen, Trash2, BarChart3, Brain, Loader2, X } from 'lucide-react';
-import type { Book } from '@/lib/db';
-import { LocalDB, TextAnalyzer } from '@/lib/db';
+} from "@/components/ui/dialog"
+import { BookOpen, Trash2, BarChart3, Brain, Loader2, X } from "lucide-react"
+import type { Book } from "@/lib/db"
+import { LocalDB, TextAnalyzer } from "@/lib/db"
 
 interface BookCardProps {
-  book: Book;
-  onDelete: (bookId: string) => void;
+  book: Book
+  onDelete: (bookId: string) => void
 }
 
 interface LevelAnalysis {
-  level: string;
-  description: string;
+  level: string
+  description: string
   examples: Array<{
-    word: string;
-    translation: string;
-    meaning: string;
-  }>;
+    word: string
+    translation: string
+    meaning: string
+  }>
 }
 
 export function BookCard({ book, onDelete }: BookCardProps) {
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [levelAnalysis, setLevelAnalysis] = useState<LevelAnalysis | null>(null);
-  const [currentBatch, setCurrentBatch] = useState(0);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [levelAnalysis, setLevelAnalysis] = useState<LevelAnalysis | null>(null)
+  const [currentBatch, setCurrentBatch] = useState(0)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   const getDifficultyLabel = (percentage: number) => {
-    if (percentage < 5) return 'Очень легкий';
-    if (percentage < 10) return 'Начальный';
-    if (percentage < 15) return 'Базовый';
-    if (percentage < 20) return 'Средний';
-    if (percentage < 40) return 'Сложный';
-    if (percentage < 60) return 'Очень сложный';
-    return 'Экстремальный';
-  };
+    if (percentage < 5) return "Очень легкий"
+    if (percentage < 10) return "Начальный"
+    if (percentage < 15) return "Базовый"
+    if (percentage < 20) return "Средний"
+    if (percentage < 40) return "Сложный"
+    if (percentage < 60) return "Очень сложный"
+    return "Экстремальный"
+  }
 
   const getDifficultyColor = (percentage: number) => {
-    if (percentage < 5) return 'bg-indigo-400';
-    if (percentage < 10) return 'bg-blue-400';
-    if (percentage < 15) return 'bg-green-500';
-    if (percentage < 20) return 'bg-yellow-400';
-    if (percentage < 40) return 'bg-orange-500';
-    if (percentage < 60) return 'bg-red-600';
-    return 'bg-purple-700';
-  };
+    if (percentage < 5) return "bg-indigo-400"
+    if (percentage < 10) return "bg-blue-400"
+    if (percentage < 15) return "bg-green-500"
+    if (percentage < 20) return "bg-yellow-400"
+    if (percentage < 40) return "bg-orange-500"
+    if (percentage < 60) return "bg-red-600"
+    return "bg-purple-700"
+  }
 
   const analyzeLevel = async (batchNumber = 0) => {
-    setIsAnalyzing(true);
+    setIsAnalyzing(true)
 
     try {
       // Get unknown words from the book
-      const dictionary = LocalDB.getDictionary();
+      const dictionary = LocalDB.getDictionary()
       const knownWordsSet = new Set(
         dictionary.filter((w) => w.isKnown).map((w) => w.word.toLowerCase())
-      );
-      const bookWords = TextAnalyzer.extractWords(book.content);
-      const uniqueWords = Array.from(new Set(bookWords));
-      const unknownWords = uniqueWords.filter((word) => !knownWordsSet.has(word.toLowerCase()));
+      )
+      const bookWords = TextAnalyzer.extractWords(book.content)
+      const uniqueWords = Array.from(new Set(bookWords))
+      const unknownWords = uniqueWords.filter((word) => !knownWordsSet.has(word.toLowerCase()))
 
       // Get 50 words starting from the current batch
-      const startIndex = batchNumber * 50;
-      const wordsToAnalyze = unknownWords.slice(startIndex, startIndex + 50);
+      const startIndex = batchNumber * 50
+      const wordsToAnalyze = unknownWords.slice(startIndex, startIndex + 50)
 
       if (wordsToAnalyze.length === 0) {
         setLevelAnalysis({
-          level: 'Нет неизвестных слов',
-          description: 'Все слова в этой книге уже изучены!',
+          level: "Нет неизвестных слов",
+          description: "Все слова в этой книге уже изучены!",
           examples: [],
-        });
-        setIsAnalyzing(false);
-        return;
+        })
+        setIsAnalyzing(false)
+        return
       }
 
-      const settings = LocalDB.getSettings();
-      const response = await fetch('/api/translate', {
-        method: 'POST',
+      const settings = LocalDB.getSettings()
+      const response = await fetch("/api/translate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          text: `Проанализируй уровень сложности этих английских слов и определи общий уровень английского языка (A1, A2, B1, B2, C1, C2): ${wordsToAnalyze.join(', ')}. 
+          text: `Проанализируй уровень сложности этих английских слов и определи общий уровень английского языка (A1, A2, B1, B2, C1, C2): ${wordsToAnalyze.join(", ")}. 
           
           Дай ответ в формате JSON:
           {
@@ -104,47 +104,46 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           }`,
           apiKey: settings.groqApiKey,
         }),
-      });
+      })
 
       if (!response.ok) {
-        throw new Error('Ошибка анализа уровня');
+        throw new Error("Ошибка анализа уровня")
       }
 
-      const result = await response.json();
+      const result = await response.json()
 
       try {
-        const analysis = JSON.parse(result.translation);
-        setLevelAnalysis(analysis);
-        setCurrentBatch(batchNumber);
+        const analysis = JSON.parse(result.translation)
+        setLevelAnalysis(analysis)
+        setCurrentBatch(batchNumber)
       } catch {
         // Fallback if JSON parsing fails
         setLevelAnalysis({
-          level: 'Анализ завершен',
+          level: "Анализ завершен",
           description: result.translation,
           examples: [],
-        });
+        })
       }
     } catch (error) {
-      console.error('Error analyzing level:', error);
+      console.error("Error analyzing level:", error)
       setLevelAnalysis({
-        level: 'Ошибка',
-        description: 'Не удалось проанализировать уровень. Проверьте настройки API.',
+        level: "Ошибка",
+        description: "Не удалось проанализировать уровень. Проверьте настройки API.",
         examples: [],
-      });
+      })
     } finally {
-      setIsAnalyzing(false);
+      setIsAnalyzing(false)
     }
-  };
+  }
 
   return (
     <Card className="group hover:shadow-lg transition-all duration-200 hover:scale-[1.02]">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h3 className="font-semibold text-lg text-balance leading-tight mb-2">{book.title}</h3>
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>{book.wordCount ? book.wordCount.toLocaleString() : '0'} слов</span>
+              <span>{book.wordCount ? book.wordCount.toLocaleString() : "0"} слов</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -156,6 +155,7 @@ export function BookCard({ book, onDelete }: BookCardProps) {
             </Badge>
           </div>
         </div>
+        <h3 className="font-semibold text-lg text-balance leading-tight mb-2">{book.title}</h3>
       </CardHeader>
 
       <CardContent className="pt-0">
@@ -261,5 +261,5 @@ export function BookCard({ book, onDelete }: BookCardProps) {
         </Dialog>
       </CardContent>
     </Card>
-  );
+  )
 }
