@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { BookOpen, Trash2, BarChart3, Brain, Loader2, X, Scissors } from "lucide-react"
+import { SplitBookDialog } from "./split-book-dialog"
 import type { Book } from "@/lib/db"
 import { LocalDB, TextAnalyzer } from "@/lib/db"
 import * as Progress from "@radix-ui/react-progress"
@@ -37,6 +38,7 @@ export function BookCard({ book, onDelete }: BookCardProps) {
   const [levelAnalysis, setLevelAnalysis] = useState<LevelAnalysis | null>(null)
   const [currentBatch, setCurrentBatch] = useState(0)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false)
 
   const getDifficultyLabel = (percentage: number) => {
     if (percentage < 5) return "Очень легкий"
@@ -210,12 +212,20 @@ export function BookCard({ book, onDelete }: BookCardProps) {
             size="icon"
             onClick={(e) => {
               e.stopPropagation()
-              // Add your split book logic here
+              setIsSplitDialogOpen(true)
             }}
             title="Разделить книгу на части"
           >
             <Scissors className="h-4 w-4 text-blue-700" />
           </Button>
+          <SplitBookDialog
+            isOpen={isSplitDialogOpen}
+            onOpenChange={setIsSplitDialogOpen}
+            onSplit={(wordCount) => {
+              console.log(`Разделение книги на части по ${wordCount} символов`)
+              // Здесь будет логика разделения книги
+            }}
+          />
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
