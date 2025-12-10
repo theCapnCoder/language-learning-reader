@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { BookOpen, Trash2, BarChart3, Brain, Loader2, X } from "lucide-react"
+import { BookOpen, Trash2, BarChart3, Brain, Loader2, X, Scissors } from "lucide-react"
 import type { Book } from "@/lib/db"
 import { LocalDB, TextAnalyzer } from "@/lib/db"
 import * as Progress from "@radix-ui/react-progress"
@@ -204,6 +204,17 @@ export function BookCard({ book, onDelete }: BookCardProps) {
             className="text-destructive hover:text-destructive"
           >
             <Trash2 className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              // Add your split book logic here
+            }}
+            title="Разделить книгу на части"
+          >
+            <Scissors className="h-4 w-4 text-blue-700" />
           </Button>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
