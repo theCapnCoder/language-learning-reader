@@ -15,6 +15,7 @@ import {
 import { BookOpen, Trash2, BarChart3, Brain, Loader2, X } from "lucide-react"
 import type { Book } from "@/lib/db"
 import { LocalDB, TextAnalyzer } from "@/lib/db"
+import * as Progress from "@radix-ui/react-progress"
 
 interface BookCardProps {
   book: Book
@@ -164,17 +165,25 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <BookOpen className="h-12 w-12 text-primary/40" />
         </div>
 
-        {/* Statistics */}
-        <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span className="text-muted-foreground">Изучено:</span>
-            <span className="font-medium">{book.knownWords}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-            <span className="text-muted-foreground">Неизвестно:</span>
-            <span className="font-medium">{book.unknownWords}</span>
+        <div className="w-full space-y-2 mb-4">
+          <Progress.Root
+            className="relative overflow-hidden bg-gray-200 rounded-full h-2.5"
+            value={book.difficultyPercentage}
+          >
+            <Progress.Indicator
+              className="bg-green-500 w-full h-full transition-transform duration-300"
+              style={{ transform: `translateX(-${100 - book.difficultyPercentage}%)` }}
+            />
+          </Progress.Root>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span className="flex items-center">
+              <span className="inline-block w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+              {book.knownWords} изучено
+            </span>
+            <span className="flex items-center">
+              <span className="inline-block w-2 h-2 bg-red-500 rounded-full mr-1"></span>
+              {book.unknownWords} неизвестно
+            </span>
           </div>
         </div>
 
@@ -183,7 +192,6 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <span className="text-sm text-muted-foreground">Сложность:</span>
           <span className="text-sm font-medium">{book.difficultyPercentage}%</span>
         </div>
-
         {/* Actions */}
         <div className="flex gap-2 mb-2">
           <Button asChild className="flex-1">
@@ -198,7 +206,6 @@ export function BookCard({ book, onDelete }: BookCardProps) {
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button
