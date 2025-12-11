@@ -1,19 +1,36 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { BookUpload } from "@/components/book-upload"
 import { BookCard } from "@/components/book-card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Search, Plus, BookOpen, Folder, ArrowLeft, FolderPlus, Edit2, Trash2, Check, X } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Search,
+  Plus,
+  BookOpen,
+  Folder,
+  ArrowLeft,
+  FolderPlus,
+  Edit2,
+  Trash2,
+  Check,
+  X,
+} from "lucide-react"
 import { LocalDB } from "@/lib/db"
-import type { Book, Folder as FolderType } from "@/lib/db"
+import type { Book } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 
 export default function HomePage() {
   const [books, setBooks] = useState<Book[]>([])
-  const [folders, setFolders] = useState<FolderType[]>([])
+  const [folders, setFolders] = useState<Array<{ id: string; name: string; createdDate: Date }>>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [showUpload, setShowUpload] = useState(false)
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null)
@@ -23,17 +40,26 @@ export default function HomePage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => {
-    const loadedBooks = LocalDB.getBooks()
-    const loadedFolders = LocalDB.getFolders()
-    setBooks(loadedBooks)
-    setFolders(loadedFolders)
+  // Function to refresh folders from local storage
+  const refreshFolders = useCallback(() => {
+    const storedFolders = LocalDB.getFolders()
+    setFolders(storedFolders)
   }, [])
 
-  const handleBooksUploaded = (updatedBooks: Book[]) => {
-    setBooks(updatedBooks)
-    setShowUpload(false)
-  }
+  useEffect(() => {
+    const loadedBooks = LocalDB.getBooks()
+    setBooks(loadedBooks)
+    refreshFolders()
+  }, [refreshFolders])
+
+  const handleBooksUploaded = useCallback(
+    (updatedBooks: Book[]) => {
+      setBooks(updatedBooks)
+      refreshFolders()
+      setShowUpload(false)
+    },
+    [refreshFolders]
+  )
 
   const handleDeleteBook = (bookId: string) => {
     const updatedBooks = books.filter((book) => book.id !== bookId)
@@ -49,7 +75,7 @@ export default function HomePage() {
   const handleCreateFolder = () => {
     if (!newFolderName.trim()) return
 
-    const newFolder: FolderType = {
+    const newFolder = {
       id: Date.now().toString(),
       name: newFolderName.trim(),
       createdDate: new Date(),
@@ -69,7 +95,9 @@ export default function HomePage() {
 
   const handleDeleteFolder = (folderId: string) => {
     // Move books from this folder to root
-    const updatedBooks = books.map((book) => (book.folderId === folderId ? { ...book, folderId: undefined } : book))
+    const updatedBooks = books.map((book) =>
+      book.folderId === folderId ? { ...book, folderId: undefined } : book
+    )
     setBooks(updatedBooks)
     LocalDB.saveBooks(updatedBooks)
 
@@ -89,7 +117,7 @@ export default function HomePage() {
     if (!newName.trim()) return
 
     const updatedFolders = folders.map((folder) =>
-      folder.id === folderId ? { ...folder, name: newName.trim() } : folder,
+      folder.id === folderId ? { ...folder, name: newName.trim() } : folder
     )
     LocalDB.saveFolders(updatedFolders)
     setFolders(updatedFolders)
@@ -117,13 +145,22 @@ export default function HomePage() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             {currentFolder && (
-              <Button variant="ghost" size="sm" onClick={() => setCurrentFolderId(null)} className="p-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setCurrentFolderId(null)}
+                className="p-1"
+              >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
-            <h1 className="text-3xl font-bold text-balance">{currentFolder ? currentFolder.name : "Мои книги"}</h1>
+            <h1 className="text-3xl font-bold text-balance">
+              {currentFolder ? currentFolder.name : "Мои книги"}
+            </h1>
           </div>
-          <p className="text-muted-foreground">Управляйте своей библиотекой и отслеживайте прогресс изучения языка</p>
+          <p className="text-muted-foreground">
+            Управляйте своей библиотекой и отслеживайте прогресс изучения языка
+          </p>
         </div>
         <div className="flex gap-2">
           {currentFolder && (
@@ -174,7 +211,10 @@ export default function HomePage() {
                 }}
               />
               <div className="flex gap-2">
-                <Button onClick={() => handleEditFolder(editingFolder, editName)} disabled={!editName.trim()}>
+                <Button
+                  onClick={() => handleEditFolder(editingFolder, editName)}
+                  disabled={!editName.trim()}
+                >
                   <Check className="h-4 w-4 mr-2" />
                   Сохранить
                 </Button>
@@ -189,7 +229,9 @@ export default function HomePage() {
       )}
 
       {/* Upload section */}
-      {showUpload && <BookUpload onBooksUploaded={handleBooksUploaded} currentFolderId={currentFolderId} />}
+      {showUpload && (
+        <BookUpload onBooksUploaded={handleBooksUploaded} currentFolderId={currentFolderId} />
+      )}
 
       {!currentFolderId && (
         <div className="flex items-center justify-between">
@@ -264,7 +306,16 @@ export default function HomePage() {
       {filteredBooks.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredBooks.map((book) => (
-            <BookCard key={book.id} book={book} onDelete={handleDeleteBook} />
+            <BookCard
+              key={book.id}
+              book={book}
+              onDelete={handleDeleteBook}
+              onBookListChange={() => {
+                const updatedBooks = LocalDB.getBooks()
+                setBooks(updatedBooks)
+                refreshFolders()
+              }}
+            />
           ))}
         </div>
       ) : books.length === 0 ? (
@@ -284,7 +335,9 @@ export default function HomePage() {
           <Search className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
           <h3 className="text-xl font-semibold mb-2">Книги не найдены</h3>
           <p className="text-muted-foreground">
-            {currentFolder ? `В папке "${currentFolder.name}" нет книг` : "Попробуйте изменить поисковый запрос"}
+            {currentFolder
+              ? `В папке "${currentFolder.name}" нет книг`
+              : "Попробуйте изменить поисковый запрос"}
           </p>
         </div>
       )}

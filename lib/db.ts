@@ -5,7 +5,7 @@ export interface Book {
   content: string
   fileName: string
   uploadDate: Date
-  wordCount: number
+  charCount: number
   knownWords: number
   unknownWords: number
   difficultyPercentage: number
@@ -78,49 +78,51 @@ export class LocalDB {
 
   static saveDictionary(words: DictionaryWord[]): void {
     if (typeof window === "undefined") return
-    
+
     try {
       // Try to save the dictionary
       localStorage.setItem(STORAGE_KEYS.DICTIONARY, JSON.stringify(words))
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'QuotaExceededError') {
-        console.warn('Local storage quota exceeded. Attempting to clean up...')
-        
+      if (error instanceof DOMException && error.name === "QuotaExceededError") {
+        console.warn("Local storage quota exceeded. Attempting to clean up...")
+
         // Try to clean up old data
         this.cleanupOldData()
-        
+
         // Try saving again after cleanup
         try {
           localStorage.setItem(STORAGE_KEYS.DICTIONARY, JSON.stringify(words))
           return
         } catch (e) {
-          console.error('Failed to save dictionary after cleanup:', e)
-          throw new Error('Dictionary is too large to store. Please remove some words or clear your browser data.')
+          console.error("Failed to save dictionary after cleanup:", e)
+          throw new Error(
+            "Dictionary is too large to store. Please remove some words or clear your browser data."
+          )
         }
       }
       throw error
     }
   }
-  
+
   private static cleanupOldData(): void {
     // Clean up old progress data (keep only the most recent 10 entries)
     const progress = this.getProgress()
     if (progress.length > 10) {
-      const sortedProgress = [...progress].sort((a, b) => 
-        new Date(b.lastReadDate).getTime() - new Date(a.lastReadDate).getTime()
+      const sortedProgress = [...progress].sort(
+        (a, b) => new Date(b.lastReadDate).getTime() - new Date(a.lastReadDate).getTime()
       )
       this.saveProgress(sortedProgress.slice(0, 10))
     }
-    
+
     // Clean up old books (keep only the most recent 20)
     const books = this.getBooks()
     if (books.length > 20) {
-      const sortedBooks = [...books].sort((a, b) => 
-        new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+      const sortedBooks = [...books].sort(
+        (a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
       )
       this.saveBooks(sortedBooks.slice(0, 20))
     }
-    
+
     // Clear any other non-essential data
     localStorage.removeItem(STORAGE_KEYS.FOLDERS) // Folders can be recreated
   }
@@ -167,11 +169,12 @@ export class TextAnalyzer {
     const unknownCount = totalUniqueWords - knownCount
 
     return {
-      totalWords: words.length,
+      totalCharacters: bookContent.length,
       uniqueWords: totalUniqueWords,
       knownWords: knownCount,
       unknownWords: unknownCount,
-      difficultyPercentage: totalUniqueWords > 0 ? Math.round((unknownCount / totalUniqueWords) * 100) : 0,
+      difficultyPercentage:
+        totalUniqueWords > 0 ? Math.round((unknownCount / totalUniqueWords) * 100) : 0,
     }
   }
 

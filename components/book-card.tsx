@@ -12,7 +12,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { BookOpen, Trash2, BarChart3, Brain, Loader2, X } from "lucide-react"
+import { BookOpen, Trash2, BarChart3, Brain, Loader2, X, Scissors } from "lucide-react"
+import { SplitBookDialog } from "./split-book-dialog"
 import type { Book } from "@/lib/db"
 import { LocalDB, TextAnalyzer } from "@/lib/db"
 import * as Progress from "@radix-ui/react-progress"
@@ -20,6 +21,7 @@ import * as Progress from "@radix-ui/react-progress"
 interface BookCardProps {
   book: Book
   onDelete: (bookId: string) => void
+  onBookListChange?: () => void
 }
 
 interface LevelAnalysis {
@@ -32,11 +34,12 @@ interface LevelAnalysis {
   }>
 }
 
-export function BookCard({ book, onDelete }: BookCardProps) {
+export function BookCard({ book, onDelete, onBookListChange }: BookCardProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [levelAnalysis, setLevelAnalysis] = useState<LevelAnalysis | null>(null)
   const [currentBatch, setCurrentBatch] = useState(0)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isSplitDialogOpen, setIsSplitDialogOpen] = useState(false)
 
   const getDifficultyLabel = (percentage: number) => {
     if (percentage < 5) return "Очень легкий"
@@ -144,7 +147,7 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>{book.wordCount ? book.wordCount.toLocaleString() : "0"} слов</span>
+              <span>{book.charCount ? book.charCount.toLocaleString() : "0"}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -205,6 +208,29 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           >
             <Trash2 className="h-4 w-4" />
           </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsSplitDialogOpen(true)
+            }}
+            title="Разделить книгу на части"
+          >
+            <Scissors className="h-4 w-4 text-blue-700" />
+          </Button>
+          <SplitBookDialog
+            isOpen={isSplitDialogOpen}
+            onOpenChange={setIsSplitDialogOpen}
+            onSplit={() => {
+              // Обновляем список книг после разделения
+              if (onBookListChange) {
+                onBookListChange()
+              }
+            }}
+            book={book}
+            bookLength={book.charCount}
+          />
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>

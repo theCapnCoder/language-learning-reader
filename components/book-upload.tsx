@@ -23,7 +23,9 @@ export function BookUpload({ onBooksUploaded, currentFolderId }: BookUploadProps
       setUploading(true)
 
       try {
-        const textFiles = acceptedFiles.filter((file) => file.type === "text/plain" || file.name.endsWith(".txt"))
+        const textFiles = acceptedFiles.filter(
+          (file) => file.type === "text/plain" || file.name.endsWith(".txt")
+        )
 
         if (textFiles.length === 0) {
           toast({
@@ -49,7 +51,7 @@ export function BookUpload({ onBooksUploaded, currentFolderId }: BookUploadProps
             content,
             fileName: file.name,
             uploadDate: new Date(),
-            wordCount: analysis.totalWords,
+            charCount: analysis.totalCharacters,
             knownWords: analysis.knownWords,
             unknownWords: analysis.unknownWords,
             difficultyPercentage: analysis.difficultyPercentage,
@@ -78,7 +80,7 @@ export function BookUpload({ onBooksUploaded, currentFolderId }: BookUploadProps
         setUploading(false)
       }
     },
-    [onBooksUploaded, toast],
+    [onBooksUploaded, toast]
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -100,7 +102,9 @@ export function BookUpload({ onBooksUploaded, currentFolderId }: BookUploadProps
         >
           <input {...getInputProps()} />
           <Upload className="mx-auto h-12 w-12 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">{isDragActive ? "Отпустите файлы здесь" : "Загрузите книги"}</h3>
+          <h3 className="text-lg font-semibold mb-2">
+            {isDragActive ? "Отпустите файлы здесь" : "Загрузите книги"}
+          </h3>
           <p className="text-sm mb-4">Перетащите .txt файлы сюда или нажмите для выбора</p>
           <Button disabled={uploading} variant="outline">
             {uploading ? "Загрузка..." : "Выбрать файлы"}
