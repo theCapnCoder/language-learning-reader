@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { InteractiveText } from "@/components/interactive-text"
 import { ReadingControls } from "@/components/reading-controls"
-import { ArrowLeft, BookOpen, BarChart3 } from "lucide-react"
+import { WordLearningModal } from "@/components/word-learning-modal"
+import { ArrowLeft, BookOpen, BarChart3, BookMarked } from "lucide-react"
 import { LocalDB } from "@/lib/db"
 import { GroqAPI } from "@/lib/groq-api"
 import type { Book, ReadingProgress } from "@/lib/db"
@@ -25,6 +26,8 @@ export default function ReadBookPage() {
   const [readingProgress, setReadingProgress] = useState(0)
   const [sentenceTranslations, setSentenceTranslations] = useState<Map<string, string>>(new Map())
   const [loadingSentences, setLoadingSentences] = useState<Set<string>>(new Set())
+  const [showWordLearning, setShowWordLearning] = useState(false)
+  const [unknownWords, setUnknownWords] = useState<Array<{ word: string; sentence: string }>>([])
 
   const loadBookData = () => {
     // Load book
@@ -91,6 +94,31 @@ export default function ReadBookPage() {
   useEffect(() => {
     loadBookData()
   }, [bookId, router])
+
+  useEffect(() => {
+    if (!book) return
+
+    const dictionary = LocalDB.getDictionary()
+    const knownWordsSet = new Set(
+      dictionary.filter((w) => w.isKnown).map((w) => w.word.toLowerCase())
+    )
+
+    // Simple word extraction - you might want to improve this
+    const words = book.content
+      .split(/\s+/)
+      .map((word) => word.replace(/[^\w\s]/g, "").toLowerCase())
+      .filter((word) => word.length > 2 && !knownWordsSet.has(word) && /^[a-zA-Z]+$/.test(word))
+
+    // Get unique words and create example sentences
+    const uniqueWords = [...new Set(words)]
+    const wordsWithContext = uniqueWords.map((word) => ({
+      word,
+      sentence:
+        book.content.split(". ").find((s) => s.toLowerCase().includes(word)) || `${word}...`,
+    }))
+
+    setUnknownWords(wordsWithContext)
+  }, [book])
 
   const handleWordsUpdated = () => {
     loadBookData()
@@ -176,9 +204,18 @@ export default function ReadBookPage() {
           <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
             <span>{(book.charCount || 0).toLocaleString()}</span>
             <span>•</span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-3">
               <BarChart3 className="h-4 w-4" />
               <span>Сложность: {book.difficultyPercentage}%</span>
+              <Button
+                variant="outline"
+                onClick={() => setShowWordLearning(true)}
+                className="gap-2"
+                disabled={unknownWords.length === 0}
+              >
+                <BookMarked className="h-4 w-4" />
+                Изучить слова
+              </Button>
             </div>
           </div>
         </div>
@@ -187,32 +224,6 @@ export default function ReadBookPage() {
         </div>
       </div>
 
-      {/* Reading stats */}
-      {/* <Card>
-        <CardHeader className="pb-3">
-          <h3 className="font-semibold">Статистика чтения</h3>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <div className="text-2xl font-bold text-green-600">{book.knownWords}</div>
-              <div className="text-sm text-muted-foreground">Изученные слова</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-red-600">{book.unknownWords}</div>
-              <div className="text-sm text-muted-foreground">Неизвестные слова</div>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-600">{book.difficultyPercentage}%</div>
-              <div className="text-sm text-muted-foreground">Сложность</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card> */}
-
-      {/* Reading area */}
-      {/* <Card> */}
-      {/* <CardContent className="p-8"> */}
       <div
         ref={contentRef}
         className="reading-content break-words overflow-wrap-anywhere max-w-full"
@@ -229,10 +240,7 @@ export default function ReadBookPage() {
           onTranslateSentence={handleTranslateSentence}
         />
       </div>
-      {/* </CardContent> */}
-      {/* </Card> */}
 
-      {/* Reading controls */}
       <ReadingControls
         fontSize={fontSize}
         onFontSizeChange={setFontSize}
@@ -240,6 +248,12 @@ export default function ReadBookPage() {
         onHighlightColorChange={handleHighlightColorChange}
         isDarkMode={isDarkMode}
         onDarkModeToggle={handleDarkModeToggle}
+      />
+
+      <WordLearningModal
+        words={unknownWords}
+        isOpen={showWordLearning}
+        onClose={() => setShowWordLearning(false)}
       />
     </div>
   )
