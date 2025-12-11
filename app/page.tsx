@@ -26,7 +26,23 @@ import {
 } from "lucide-react"
 import { LocalDB } from "@/lib/db"
 import type { Book } from "@/lib/db"
+type SortOption =
+  | "charCountAsc"
+  | "charCountDesc"
+  | "difficultyAsc"
+  | "difficultyDesc"
+  | "titleAsc"
+  | "titleDesc"
 import { useToast } from "@/hooks/use-toast"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function HomePage() {
   const [books, setBooks] = useState<Book[]>([])
@@ -38,6 +54,7 @@ export default function HomePage() {
   const [editingFolder, setEditingFolder] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<SortOption>("titleAsc")
   const { toast } = useToast()
 
   // Function to refresh folders from local storage
@@ -130,11 +147,30 @@ export default function HomePage() {
   }
 
   // Filter books based on current folder and search query
-  const filteredBooks = books.filter((book) => {
-    const matchesFolder = currentFolderId ? book.folderId === currentFolderId : !book.folderId
-    const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase())
-    return matchesFolder && matchesSearch
-  })
+  const filteredBooks = books
+    .filter((book) => {
+      const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesFolder = currentFolderId ? book.folderId === currentFolderId : !book.folderId
+      return matchesSearch && matchesFolder
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "charCountAsc":
+          return (a.charCount || 0) - (b.charCount || 0)
+        case "charCountDesc":
+          return (b.charCount || 0) - (a.charCount || 0)
+        case "difficultyAsc":
+          return (a.difficultyPercentage || 0) - (b.difficultyPercentage || 0)
+        case "difficultyDesc":
+          return (b.difficultyPercentage || 0) - (a.difficultyPercentage || 0)
+        case "titleAsc":
+          return a.title.localeCompare(b.title)
+        case "titleDesc":
+          return b.title.localeCompare(a.title)
+        default:
+          return 0
+      }
+    })
 
   const currentFolder = currentFolderId ? folders.find((f) => f.id === currentFolderId) : null
 
@@ -287,20 +323,35 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Search and filters */}
-      {books.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Поиск книг..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+      {/* Search and Filter */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Поиск книг..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-10 w-full"
+          />
         </div>
-      )}
+        <Select value={sortBy} onValueChange={(value) => setSortBy(value as SortOption)}>
+          <SelectTrigger className="w-[250px]">
+            <SelectValue placeholder="Сортировать по..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectLabel>Сортировка</SelectLabel>
+              <SelectItem value="titleAsc">Название (А-Я)</SelectItem>
+              <SelectItem value="titleDesc">Название (Я-А)</SelectItem>
+              <SelectItem value="charCountAsc">Кол-во символов (по возрастанию)</SelectItem>
+              <SelectItem value="charCountDesc">Кол-во символов (по убыванию)</SelectItem>
+              <SelectItem value="difficultyAsc">Сложность (по возрастанию)</SelectItem>
+              <SelectItem value="difficultyDesc">Сложность (по убыванию)</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Books grid */}
       {filteredBooks.length > 0 ? (

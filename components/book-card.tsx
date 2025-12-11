@@ -175,7 +175,7 @@ export function BookCard({ book, onDelete, onBookListChange }: BookCardProps) {
           >
             <Progress.Indicator
               className="bg-green-500 w-full h-full transition-transform duration-300"
-              style={{ transform: `translateX(-${100 - book.difficultyPercentage}%)` }}
+              style={{ transform: `translateX(-${book.difficultyPercentage}%)` }}
             />
           </Progress.Root>
           <div className="flex justify-between text-xs text-muted-foreground">
