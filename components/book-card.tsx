@@ -146,7 +146,7 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <BookOpen className="h-4 w-4" />
-              <span>{book.wordCount ? book.wordCount.toLocaleString() : "0"} слов</span>
+              <span>{book.charCount ? book.charCount.toLocaleString() : "0"}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -221,10 +221,11 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <SplitBookDialog
             isOpen={isSplitDialogOpen}
             onOpenChange={setIsSplitDialogOpen}
-            onSplit={(wordCount) => {
-              console.log(`Разделение книги на части по ${wordCount} символов`)
+            onSplit={(charCount) => {
+              console.log(`Разделение книги на части по ${charCount} символов`)
               // Здесь будет логика разделения книги
             }}
+            bookLength={book.charCount}
           />
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
