@@ -21,6 +21,7 @@ import * as Progress from "@radix-ui/react-progress"
 interface BookCardProps {
   book: Book
   onDelete: (bookId: string) => void
+  onBookListChange?: () => void
 }
 
 interface LevelAnalysis {
@@ -33,7 +34,7 @@ interface LevelAnalysis {
   }>
 }
 
-export function BookCard({ book, onDelete }: BookCardProps) {
+export function BookCard({ book, onDelete, onBookListChange }: BookCardProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [levelAnalysis, setLevelAnalysis] = useState<LevelAnalysis | null>(null)
   const [currentBatch, setCurrentBatch] = useState(0)
@@ -221,10 +222,13 @@ export function BookCard({ book, onDelete }: BookCardProps) {
           <SplitBookDialog
             isOpen={isSplitDialogOpen}
             onOpenChange={setIsSplitDialogOpen}
-            onSplit={(charCount) => {
-              console.log(`Разделение книги на части по ${charCount} символов`)
-              // Здесь будет логика разделения книги
+            onSplit={() => {
+              // Обновляем список книг после разделения
+              if (onBookListChange) {
+                onBookListChange()
+              }
             }}
+            book={book}
             bookLength={book.charCount}
           />
         </div>

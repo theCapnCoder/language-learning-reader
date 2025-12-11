@@ -12,11 +12,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
+import { LocalDB, TextAnalyzer } from "@/lib/db"
 
 interface SplitBookDialogProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   onSplit: (charCount: number) => void
+  book: {
+    id: string
+    title: string
+    content: string
+    fileName: string
+    charCount: number
+  }
   bookLength: number // Общее количество символов в книге
 }
 
@@ -27,9 +35,11 @@ export function SplitBookDialog({
   isOpen,
   onOpenChange,
   onSplit,
+  book,
   bookLength,
 }: SplitBookDialogProps) {
   const [charCount, setCharCount] = useState(10000)
+  const [isSplitting, setIsSplitting] = useState(false)
 
   useEffect(() => {
     const savedCount = localStorage.getItem(STORAGE_KEY)
@@ -45,11 +55,98 @@ export function SplitBookDialog({
     }
   }
 
-  const handleSplitClick = () => {
-    localStorage.setItem(STORAGE_KEY, charCount.toString())
-    onSplit(charCount)
-    onOpenChange(false)
-    toast.success(`Книга будет разделена на части по ${charCount.toLocaleString()} символов`)
+  const handleSplitClick = async () => {
+    if (isSplitting) return
+
+    setIsSplitting(true)
+    try {
+      // Get dictionary of known words
+      const dictionary = LocalDB.getDictionary()
+      const knownWords = new Set(
+        dictionary.filter((w) => w.isKnown).map((w) => w.word.toLowerCase())
+      )
+
+      // Create a new folder for the split book
+      const folderName = `@${book.title.substring(0, 27)}${book.title.length > 27 ? "..." : ""}`
+      const newFolder = {
+        id: Date.now().toString(),
+        name: folderName,
+        createdDate: new Date(),
+      }
+
+      // Save the new folder
+      const folders = LocalDB.getFolders()
+      LocalDB.saveFolders([...folders, newFolder])
+
+      // Split the book content into parts
+      const parts = []
+      let startIndex = 0
+      const content = book.content
+
+      while (startIndex < content.length) {
+        let endIndex = Math.min(startIndex + charCount, content.length)
+
+        // Try to find a good breaking point
+        if (endIndex < content.length) {
+          // Look for paragraph break first
+          let paragraphBreak = content.lastIndexOf("\n\n", endIndex)
+          if (paragraphBreak > startIndex + charCount * 0.5) {
+            endIndex = paragraphBreak + 2
+          } else {
+            // Then try sentence end
+            const sentenceEnd = Math.max(
+              content.lastIndexOf(". ", endIndex),
+              content.lastIndexOf("! ", endIndex),
+              content.lastIndexOf("? ", endIndex)
+            )
+            if (sentenceEnd > startIndex + charCount * 0.7) {
+              endIndex = sentenceEnd + 1
+            }
+          }
+        }
+
+        const partContent = content.substring(startIndex, endIndex).trim()
+        if (partContent) {
+          parts.push(partContent)
+        }
+        startIndex = endIndex
+      }
+
+      // Create book entries for each part with word analysis
+      const newBooks = parts.map((part, index) => {
+        // Analyze the part to get word counts and difficulty
+        const analysis = TextAnalyzer.analyzeBookDifficulty(part, knownWords)
+
+        return {
+          id: Date.now().toString(),
+          title: `${book.title} (${index + 1}/${parts.length})`,
+          content: part,
+          fileName: `${book.fileName.replace(/\.[^/.]+$/, "")}_part${index + 1}.txt`,
+          uploadDate: new Date(),
+          charCount: part.length,
+          knownWords: analysis.knownWords,
+          unknownWords: analysis.unknownWords,
+          difficultyPercentage: analysis.difficultyPercentage,
+          folderId: newFolder.id,
+        }
+      })
+
+      // Save the new books
+      const existingBooks = LocalDB.getBooks()
+      LocalDB.saveBooks([...existingBooks, ...newBooks])
+
+      // Close the dialog and show success message
+      onOpenChange(false)
+      toast.success(`Книга разделена на ${parts.length} частей в папке "${folderName}"`)
+
+      // Trigger refresh in parent component
+      onSplit(charCount)
+    } catch (error) {
+      console.error("Ошибка при разделении книги:", error)
+      toast.error("Не удалось разделить книгу. Пожалуйста, попробуйте снова.")
+    } finally {
+      setIsSplitting(false)
+    }
   }
 
   // Функция для расчета количества частей
@@ -97,7 +194,7 @@ export function SplitBookDialog({
 
           <div className="space-y-2">
             <p className="text-sm font-medium">Варианты разделения:</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-flow-col grid-rows-4 gap-2">
               {CHAR_COUNT_OPTIONS.map((count) => {
                 const parts = calculateParts(count)
                 const partsWord = getPartsWord(parts)
@@ -126,7 +223,9 @@ export function SplitBookDialog({
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Отмена
             </Button>
-            <Button onClick={handleSplitClick}>Разделить</Button>
+            <Button onClick={handleSplitClick} disabled={isSplitting}>
+              {isSplitting ? "Разделение..." : "Разделить"}
+            </Button>
           </div>
         </div>
       </DialogContent>
