@@ -1,3 +1,5 @@
+import { LocalDB } from "./db"
+
 export interface GroqResponse {
   choices: Array<{
     message: {
@@ -9,6 +11,50 @@ export interface GroqResponse {
 export class GroqAPI {
   private static readonly API_URL = "https://api.groq.com/openai/v1/chat/completions"
   private static readonly MODEL = "llama-3.3-70b-versatile"
+
+  static async translateText(text: string): Promise<string> {
+    // Get API key from settings
+    let apiKey = ""
+    if (typeof window !== "undefined") {
+      const settings = LocalDB.getSettings()
+      apiKey = settings?.groqApiKey || ""
+    }
+
+    if (!apiKey) {
+      throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
+    }
+
+    const prompt = `Переведи на русский язык: "${text}"`
+
+    try {
+      const response = await fetch(this.API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.MODEL,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ошибка API: ${response.status} ${response.statusText}`)
+      }
+
+      const data: GroqResponse = await response.json()
+      return data.choices[0]?.message?.content || "Перевод не найден"
+    } catch (error) {
+      console.error("Ошибка при переводе текста:", error)
+      throw error
+    }
+  }
 
   static async translateWord(word: string, sentence: string, apiKey: string): Promise<string> {
     if (!apiKey) {
@@ -108,5 +154,52 @@ export class GroqAPI {
       console.error("Ошибка при переводе предложения:", error)
       throw error
     }
+  }
+}
+
+const API_URL = "https://api.groq.com/openai/v1/chat/completions"
+const MODEL = "llama-3.3-70b-versatile"
+
+export const translateText = async (text: string): Promise<string> => {
+  // Get API key from settings
+  let apiKey = ""
+  if (typeof window !== "undefined") {
+    const settings = LocalDB.getSettings()
+    apiKey = settings?.groqApiKey || ""
+  }
+
+  if (!apiKey) {
+    throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
+  }
+
+  const prompt = `Переведи на русский язык: "${text}"`
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+      }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Ошибка API: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data.choices[0]?.message?.content || "Перевод не найден"
+  } catch (error) {
+    console.error("Ошибка при переводе текста:", error)
+    throw error
   }
 }
