@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "./ui/button"
-import { X } from "lucide-react"
+import { X, Plus } from "lucide-react"
 import { translateText } from "@/lib/groq-api"
+import { LocalDB } from "@/lib/db"
 
 interface WordWithContext {
   word: string
@@ -146,6 +147,29 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
     }
   }
 
+  const handleAddWordAsKnown = useCallback(() => {
+    if (!currentWord?.word) return
+
+    const dictionary = LocalDB.getDictionary()
+    const existingWord = dictionary.find((w: any) => w.word === currentWord.word)
+
+    if (existingWord) {
+      existingWord.isKnown = true
+      existingWord.updatedAt = new Date().toISOString()
+    } else {
+      dictionary.push({
+        id: Date.now().toString(),
+        word: currentWord.word,
+        isKnown: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+
+    LocalDB.saveDictionary(dictionary)
+    handleNext()
+  }, [currentWord?.word, onClose])
+
   if (!isOpen || !currentWord) return null
 
   const highlightWord = (sentence: string, word: string) => {
@@ -165,7 +189,19 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold">Изучение слов</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-2xl font-bold">Изучение слов</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 border-blue-500 text-blue-500 hover:bg-blue-50 hover:text-blue-600"
+              onClick={handleAddWordAsKnown}
+              title="Добавить как изученное"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span>Добавить в изученные</span>
+            </Button>
+          </div>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
