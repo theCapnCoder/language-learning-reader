@@ -150,25 +150,14 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
   const handleAddWordAsKnown = useCallback(() => {
     if (!currentWord?.word) return
 
-    const dictionary = LocalDB.getDictionary()
-    const existingWord = dictionary.find((w: any) => w.word === currentWord.word)
-
-    if (existingWord) {
-      existingWord.isKnown = true
-      existingWord.updatedAt = new Date().toISOString()
-    } else {
-      dictionary.push({
-        id: Date.now().toString(),
-        word: currentWord.word,
-        isKnown: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      })
+    try {
+      LocalDB.addOrUpdateWord(currentWord.word, true)
+      handleNext()
+    } catch (error) {
+      console.error("Ошибка при добавлении слова в словарь:", error)
+      // Можно добавить уведомление об ошибке для пользователя
     }
-
-    LocalDB.saveDictionary(dictionary)
-    handleNext()
-  }, [currentWord?.word, onClose])
+  }, [currentWord?.word, handleNext])
 
   if (!isOpen || !currentWord) return null
 

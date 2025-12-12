@@ -76,6 +76,40 @@ export class LocalDB {
     return stored ? JSON.parse(stored) : []
   }
 
+  static addOrUpdateWord(word: string, isKnown: boolean = true): void {
+    if (typeof window === "undefined") return
+
+    try {
+      const dictionary = this.getDictionary()
+      const existingWordIndex = dictionary.findIndex((w) => w.word === word)
+      const now = new Date().toISOString()
+
+      if (existingWordIndex >= 0) {
+        // Обновляем существующее слово
+        dictionary[existingWordIndex] = {
+          ...dictionary[existingWordIndex],
+          isKnown,
+          updatedAt: now,
+        }
+      } else {
+        // Добавляем новое слово
+        dictionary.push({
+          id: Date.now().toString(),
+          word,
+          isKnown,
+          createdAt: now,
+          updatedAt: now,
+        })
+      }
+
+      // Сохраняем обновленный словарь
+      localStorage.setItem(STORAGE_KEYS.DICTIONARY, JSON.stringify(dictionary))
+    } catch (error) {
+      console.error("Error adding/updating word:", error)
+      throw error
+    }
+  }
+
   static saveDictionary(words: DictionaryWord[]): void {
     if (typeof window === "undefined") return
 
