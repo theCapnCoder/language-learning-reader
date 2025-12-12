@@ -12,7 +12,7 @@ export class GroqAPI {
   private static readonly API_URL = "https://api.groq.com/openai/v1/chat/completions"
   private static readonly MODEL = "llama-3.3-70b-versatile"
 
-  static async translateText(text: string): Promise<string> {
+  static async translateText(text: string, sentence?: string): Promise<string> {
     // Get API key from settings
     let apiKey = ""
     if (typeof window !== "undefined") {
@@ -24,7 +24,12 @@ export class GroqAPI {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
     }
 
-    const prompt = `Переведи на русский язык: "${text}"`
+    let prompt: string
+    if (sentence) {
+      prompt = `Переведи на русский язык слово "${text}", которое используется в следующем предложении: "${sentence}". В ответе укажи только перевод слова, без дополнительных объяснений.`
+    } else {
+      prompt = `Переведи на русский язык слово: "${text}". В ответе укажи только перевод слова, без дополнительных объяснений.`
+    }
 
     try {
       const response = await fetch(this.API_URL, {
@@ -179,7 +184,7 @@ export const translateText = async (text: string): Promise<string> => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: MODEL,

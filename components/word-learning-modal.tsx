@@ -29,7 +29,6 @@ const isWordLoadable = (word: string | undefined | null): boolean => {
 }
 
 export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalProps) {
-  console.log(words)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [translationCache, setTranslationCache] = useState<TranslationCache>({})
@@ -50,39 +49,33 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
       return
     }
 
-    // Если перевод уже загружен, используем кеш
-    if (translationCache[currentIndex] !== undefined) {
-      setCurrentTranslation(translationCache[currentIndex])
-      return
-    }
-
-    // Устанавливаем флаг загрузки и очищаем ошибки
-    setIsLoading(true)
-    setError(null)
-
     try {
-      // Устанавливаем null в кеш, чтобы избежать повторных запросов
+      // Проверяем, есть ли уже перевод в кеше
+      if (translationCache[currentIndex] !== undefined) {
+        setCurrentTranslation(translationCache[currentIndex])
+        return
+      }
+
+      setIsLoading(true)
+      setError(null)
+
+      // Устанавливаем null в кеш, чтобы предотвратить дублирующие запросы
       setTranslationCache((prev) => ({
         ...prev,
         [currentIndex]: null,
       }))
 
-      const [wordTranslation, sentenceTranslation] = await Promise.all([
-        translateText(currentWord.word),
-        translateText(currentWord.sentence),
-      ])
-
+      // Вызываем API для перевода с контекстом предложения
+      const translation = await translateText(currentWord.word)
       const newTranslation = {
-        word: wordTranslation,
-        sentence: sentenceTranslation,
+        word: translation,
+        sentence: currentWord.sentence,
       }
-
       // Обновляем кеш
       setTranslationCache((prev) => ({
         ...prev,
         [currentIndex]: newTranslation,
       }))
-
       setCurrentTranslation(newTranslation)
     } catch (err) {
       console.error("Translation error:", err)
