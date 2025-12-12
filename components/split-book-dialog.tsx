@@ -119,7 +119,7 @@ export function SplitBookDialog({
 
         return {
           id: Date.now().toString(),
-          title: `${book.title} (${index + 1}/${parts.length})`,
+          title: `(${index + 1}/${parts.length}) ${book.title} `,
           content: part,
           fileName: `${book.fileName.replace(/\.[^/.]+$/, "")}_part${index + 1}.txt`,
           uploadDate: new Date(),
