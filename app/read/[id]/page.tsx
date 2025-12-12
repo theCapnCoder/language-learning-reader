@@ -98,24 +98,39 @@ export default function ReadBookPage() {
   useEffect(() => {
     if (!book) return
 
+    setUnknownWords([])
     const dictionary = LocalDB.getDictionary()
     const knownWordsSet = new Set(
       dictionary.filter((w) => w.isKnown).map((w) => w.word.toLowerCase())
     )
 
-    // Simple word extraction - you might want to improve this
-    const words = book.content
-      .split(/\s+/)
-      .map((word) => word.replace(/[^\w\s]/g, "").toLowerCase())
-      .filter((word) => word.length > 2 && !knownWordsSet.has(word) && /^[a-zA-Z]+$/.test(word))
+    const wordRegex = /\b[a-zA-Z']{3,}\b/g
+    const wordsWithContext: { word: string; sentence: string }[] = []
+    // wordRegex.lastIndex = 0
 
-    // Get unique words and create example sentences
-    const uniqueWords = [...new Set(words)]
-    const wordsWithContext = uniqueWords.map((word) => ({
-      word,
-      sentence:
-        book.content.split(". ").find((s) => s.toLowerCase().includes(word)) || `${word}...`,
-    }))
+    let match
+
+    // Find all word occurrences with their positions
+    while ((match = wordRegex.exec(book.content.toLowerCase())) !== null) {
+      const word = match[0]
+      if (word.length > 2 && !knownWordsSet.has(word) && /^[a-zA-Z]+$/.test(word)) {
+        // Get context around the word (100 characters before and after)
+        const contextStart = Math.max(0, match.index - 100)
+        const contextEnd = Math.min(book.content.length, match.index + word.length + 100)
+
+        // Get full context
+        let context = book.content.slice(contextStart, contextEnd)
+
+        // Add to results if we found a reasonable sentence
+        if (context.length > 0 && context.length < 500) {
+          // Limit sentence length
+          wordsWithContext.push({
+            word,
+            sentence: context || `${word}...`,
+          })
+        }
+      }
+    }
 
     setUnknownWords(wordsWithContext)
   }, [book])
