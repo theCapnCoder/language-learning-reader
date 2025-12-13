@@ -13,6 +13,7 @@ export class GroqAPI {
   private static readonly MODEL = "llama-3.3-70b-versatile"
 
   static async translateText(text: string, sentence?: string): Promise<string> {
+    console.log({ text, sentence })
     // Get API key from settings
     let apiKey = ""
     if (typeof window !== "undefined") {
@@ -66,6 +67,7 @@ export class GroqAPI {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
     }
 
+    console.log({ word, sentence })
     const currentLanguage =
       typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
 
