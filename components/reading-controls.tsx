@@ -4,7 +4,9 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
-import { Type, Palette, Settings, Sun, Moon } from "lucide-react"
+import { Type, Palette, Settings, Sun, Moon, Sliders } from "lucide-react"
+import { useRouter } from "next/navigation"
+import type { AppSettings } from "@/lib/db"
 
 interface ReadingControlsProps {
   fontSize: number
@@ -13,6 +15,8 @@ interface ReadingControlsProps {
   onHighlightColorChange: (color: string) => void
   isDarkMode: boolean
   onDarkModeToggle: () => void
+  textSettings?: AppSettings
+  onTextSettingsChange?: (settings: AppSettings) => void
 }
 
 const colorPresets = [
@@ -31,8 +35,11 @@ export function ReadingControls({
   onHighlightColorChange,
   isDarkMode,
   onDarkModeToggle,
+  textSettings,
+  onTextSettingsChange,
 }: ReadingControlsProps) {
   const [showControls, setShowControls] = useState(false)
+  const router = useRouter()
 
   return (
     <>
@@ -85,7 +92,9 @@ export function ReadingControls({
                   <button
                     key={color}
                     className={`w-8 h-8 rounded-full border-2 transition-all ${
-                      highlightColor === color ? "border-foreground scale-110" : "border-border hover:scale-105"
+                      highlightColor === color
+                        ? "border-foreground scale-110"
+                        : "border-border hover:scale-105"
                     }`}
                     style={{ backgroundColor: color }}
                     onClick={() => onHighlightColorChange(color)}
@@ -102,6 +111,19 @@ export function ReadingControls({
               </div>
               <Button variant="outline" size="sm" onClick={onDarkModeToggle}>
                 {isDarkMode ? "Выкл" : "Вкл"}
+              </Button>
+            </div>
+
+            {/* Advanced text settings */}
+            <div className="pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => router.push("/settings/text")}
+              >
+                <Sliders className="h-4 w-4 mr-2" />
+                Расширенные настройки текста
               </Button>
             </div>
           </CardContent>

@@ -29,6 +29,14 @@ export interface ReadingProgress {
 export interface AppSettings {
   highlightColor: string
   groqApiKey: string
+  fontSize: number
+  lineHeight: number
+  letterSpacing: number
+  wordSpacing: number
+  paragraphSpacing: number
+  textAlign: "left" | "center" | "justify" | "right"
+  fontFamily: string
+  translationIconSize: number
 }
 
 export interface Folder {
@@ -162,9 +170,39 @@ export class LocalDB {
   }
 
   static getSettings(): AppSettings {
-    if (typeof window === "undefined") return { highlightColor: "#3b82f6", groqApiKey: "" }
+    const defaultSettings = {
+      highlightColor: "#3b82f6",
+      groqApiKey: "",
+      fontSize: 16,
+      lineHeight: 1.6,
+      letterSpacing: 0,
+      wordSpacing: 0,
+      paragraphSpacing: 16,
+      textAlign: "left" as const,
+      fontFamily: "system-ui",
+      translationIconSize: 24,
+    }
+
+    if (typeof window === "undefined") {
+      return defaultSettings
+    }
+
     const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS)
-    return stored ? JSON.parse(stored) : { highlightColor: "#3b82f6", groqApiKey: "" }
+    if (!stored) {
+      return defaultSettings
+    }
+
+    try {
+      const parsed = JSON.parse(stored)
+      // Merge with defaults to ensure all fields exist
+      return {
+        ...defaultSettings,
+        ...parsed,
+      }
+    } catch (error) {
+      console.error("Error parsing settings from localStorage:", error)
+      return defaultSettings
+    }
   }
 
   static saveSettings(settings: AppSettings): void {

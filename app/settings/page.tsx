@@ -6,18 +6,31 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { ColorPicker } from "@/components/color-picker"
-import { Settings, Key, Palette, Save, Eye, EyeOff } from "lucide-react"
+import { Settings, Key, Palette, Save, Eye, EyeOff, Type } from "lucide-react"
 import { LocalDB } from "@/lib/db"
 import type { AppSettings, Book, DictionaryWord } from "@/lib/db"
-import { useToast } from "@/hooks/use-toast"
+import { toast } from "react-toastify"
+import { useRouter } from "next/navigation"
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState<AppSettings>({ highlightColor: "#3b82f6", groqApiKey: "" })
+  const router = useRouter()
+  const [settings, setSettings] = useState<AppSettings>({
+    highlightColor: "#3b82f6",
+    groqApiKey: "",
+    fontSize: 16,
+    lineHeight: 1.6,
+    letterSpacing: 0,
+    wordSpacing: 0,
+    paragraphSpacing: 16,
+    textAlign: "left",
+    fontFamily: "system-ui",
+    translationIconSize: 24,
+  })
   const [books, setBooks] = useState<Book[]>([])
   const [words, setWords] = useState<DictionaryWord[]>([])
   const [showApiKey, setShowApiKey] = useState(false)
   const [tempApiKey, setTempApiKey] = useState("")
-  const { toast } = useToast()
+  // const { toast } = useToast() // Удалено, используем react-toastify
 
   useEffect(() => {
     const loadedSettings = LocalDB.getSettings()
@@ -39,9 +52,9 @@ export default function SettingsPage() {
     LocalDB.saveSettings(updatedSettings)
     setSettings(updatedSettings)
 
-    toast({
-      title: "Настройки сохранены",
-      description: "Все изменения были успешно сохранены",
+    toast.success("Настройки сохранены", {
+      position: "top-right",
+      autoClose: 2000,
     })
   }
 
@@ -54,12 +67,23 @@ export default function SettingsPage() {
       localStorage.clear()
       setBooks([])
       setWords([])
-      setSettings({ highlightColor: "#3b82f6", groqApiKey: "" })
+      setSettings({
+        highlightColor: "#3b82f6",
+        groqApiKey: "",
+        fontSize: 16,
+        lineHeight: 1.6,
+        letterSpacing: 0,
+        wordSpacing: 0,
+        paragraphSpacing: 16,
+        textAlign: "left",
+        fontFamily: "system-ui",
+        translationIconSize: 24,
+      })
       setTempApiKey("")
 
-      toast({
-        title: "Данные очищены",
-        description: "Все книги, словарь и настройки были удалены",
+      toast.success("Данные очищены", {
+        position: "top-right",
+        autoClose: 2000,
       })
     }
   }
@@ -67,9 +91,20 @@ export default function SettingsPage() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-balance">Настройки</h1>
-        <p className="text-muted-foreground mt-1">Настройте приложение под свои предпочтения</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-balance">Настройки</h1>
+          <p className="text-muted-foreground mt-1">Настройте приложение под свои предпочтения</p>
+        </div>
+        <Button
+          variant="outline"
+          size="lg"
+          className="h-12 px-4"
+          onClick={() => router.push("/settings/text")}
+          title="Настройки текста"
+        >
+          <Type className="h-6 w-6" />
+        </Button>
       </div>
 
       {/* API Settings */}
@@ -131,6 +166,13 @@ export default function SettingsPage() {
             <ColorPicker value={settings.highlightColor} onChange={handleColorChange} />
             <div className="p-3 bg-muted rounded-lg">
               <p className="text-sm">
+                Текущий размер шрифта: <span className="font-medium">{settings.fontSize}px</span>
+              </p>
+              <p className="text-sm">
+                Межстрочный интервал:{" "}
+                <span className="font-medium">{(settings.lineHeight || 1.6).toFixed(1)}</span>
+              </p>
+              <p className="text-sm">
                 Пример:{" "}
                 <span className="font-medium" style={{ color: settings.highlightColor }}>
                   изученное слово
@@ -161,7 +203,8 @@ export default function SettingsPage() {
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Все данные хранятся локально в вашем браузере. Очистка данных удалит все книги, словарь и настройки.
+            Все данные хранятся локально в вашем браузере. Очистка данных удалит все книги, словарь
+            и настройки.
           </p>
         </CardContent>
       </Card>
