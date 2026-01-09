@@ -10,7 +10,7 @@ import { WordLearningModal } from "@/components/word-learning-modal"
 import { ArrowLeft, BookOpen, BarChart3, BookMarked } from "lucide-react"
 import { LocalDB } from "@/lib/db"
 import { GroqAPI } from "@/lib/groq-api"
-import type { Book, ReadingProgress } from "@/lib/db"
+import type { Book, ReadingProgress, AppSettings } from "@/lib/db"
 
 export default function ReadBookPage() {
   const params = useParams()
@@ -28,6 +28,7 @@ export default function ReadBookPage() {
   const [loadingSentences, setLoadingSentences] = useState<Set<string>>(new Set())
   const [showWordLearning, setShowWordLearning] = useState(false)
   const [unknownWords, setUnknownWords] = useState<Array<{ word: string; sentence: string }>>([])
+  const [textSettings, setTextSettings] = useState<AppSettings | undefined>(undefined)
 
   const loadBookData = () => {
     // Load book
@@ -51,6 +52,7 @@ export default function ReadBookPage() {
     // Load settings
     const settings = LocalDB.getSettings()
     setHighlightColor(settings.highlightColor)
+    setTextSettings(settings)
 
     const progressData = LocalDB.getProgress()
     const bookProgress = progressData.find((p) => p.bookId === bookId)
@@ -177,8 +179,18 @@ export default function ReadBookPage() {
 
   const handleHighlightColorChange = (color: string) => {
     setHighlightColor(color)
-    const settings = LocalDB.getSettings()
-    LocalDB.saveSettings({ ...settings, highlightColor: color })
+    if (textSettings) {
+      const updatedSettings = { ...textSettings, highlightColor: color }
+      setTextSettings(updatedSettings)
+      LocalDB.saveSettings(updatedSettings)
+    }
+  }
+
+  const handleTextSettingsChange = (settings: AppSettings) => {
+    setTextSettings(settings)
+    setHighlightColor(settings.highlightColor)
+    setFontSize(settings.fontSize)
+    LocalDB.saveSettings(settings)
   }
 
   const handleDarkModeToggle = () => {
@@ -242,7 +254,6 @@ export default function ReadBookPage() {
       <div
         ref={contentRef}
         className="reading-content break-words overflow-wrap-anywhere max-w-full"
-        style={{ fontSize: `${fontSize}px` }}
         onScroll={handleScroll}
       >
         <InteractiveText
@@ -253,6 +264,7 @@ export default function ReadBookPage() {
           sentenceTranslations={sentenceTranslations}
           loadingSentences={loadingSentences}
           onTranslateSentence={handleTranslateSentence}
+          textSettings={textSettings}
         />
       </div>
 
@@ -263,6 +275,8 @@ export default function ReadBookPage() {
         onHighlightColorChange={handleHighlightColorChange}
         isDarkMode={isDarkMode}
         onDarkModeToggle={handleDarkModeToggle}
+        textSettings={textSettings}
+        onTextSettingsChange={handleTextSettingsChange}
       />
 
       <WordLearningModal

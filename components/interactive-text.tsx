@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, Languages, X, Plus } from "lucide-react"
 import { GroqAPI } from "@/lib/groq-api"
 import { LocalDB } from "@/lib/db"
+import type { AppSettings } from "@/lib/db"
 
 interface InteractiveTextProps {
   content: string
@@ -15,6 +16,7 @@ interface InteractiveTextProps {
   sentenceTranslations: Map<string, string>
   loadingSentences: Set<string>
   onTranslateSentence: (sentence: string) => void
+  textSettings?: AppSettings
 }
 
 interface Translation {
@@ -37,9 +39,24 @@ export function InteractiveText({
   sentenceTranslations,
   loadingSentences,
   onTranslateSentence,
+  textSettings,
 }: InteractiveTextProps) {
   const [translation, setTranslation] = useState<Translation | null>(null)
   // No need for local state since we're using props now
+
+  // Get text styles from settings or use defaults
+  const getTextStyle = () => ({
+    fontSize: `${textSettings?.fontSize || 16}px`,
+    lineHeight: textSettings?.lineHeight || 1.6,
+    letterSpacing: `${textSettings?.letterSpacing || 0}px`,
+    wordSpacing: `${textSettings?.wordSpacing || 0}px`,
+    textAlign: textSettings?.textAlign || ("left" as const),
+    fontFamily: textSettings?.fontFamily || "system-ui",
+  })
+
+  const getParagraphStyle = () => ({
+    marginBottom: `${textSettings?.paragraphSpacing || 16}px`,
+  })
 
   const handleWordClick = useCallback(async (word: string, sentence: string) => {
     const settings = LocalDB.getSettings()
@@ -112,22 +129,40 @@ export function InteractiveText({
       <Button
         variant="ghost"
         size="sm"
-        className="ml-1 h-6 w-6 p-0 opacity-50 hover:opacity-100 transition-opacity"
+        className="ml-1 opacity-50 hover:opacity-100 transition-colors"
+        style={{
+          width: `${textSettings?.translationIconSize || 24}px`,
+          height: `${textSettings?.translationIconSize || 24}px`,
+          padding: "0",
+        }}
         onClick={(e) => {
           e.stopPropagation()
           handleSentenceTranslate(sentence)
         }}
       >
-        <Languages className="h-3 w-3" />
+        <Languages
+          style={{
+            width: `${(textSettings?.translationIconSize || 24) * 0.5}px`,
+            height: `${(textSettings?.translationIconSize || 24) * 0.5}px`,
+          }}
+        />
       </Button>
     ),
-    [handleSentenceTranslate]
+    [handleSentenceTranslate, textSettings?.translationIconSize]
   )
 
   // Мемоизированный компонент загрузки
   const LoadingSpinner = useCallback(
-    () => <Loader2 className="inline h-3 w-3 ml-1 animate-spin opacity-50" />,
-    []
+    () => (
+      <Loader2
+        className="inline animate-spin opacity-50 ml-1"
+        style={{
+          width: `${(textSettings?.translationIconSize || 24) * 0.5}px`,
+          height: `${(textSettings?.translationIconSize || 24) * 0.5}px`,
+        }}
+      />
+    ),
+    [textSettings?.translationIconSize]
   )
 
   // Мемоизированный компонент перевода
@@ -145,7 +180,7 @@ export function InteractiveText({
       const sentences = line.split(/([.!?]+)/).filter((part) => part.trim())
 
       return (
-        <div key={lineIndex} className="mb-2">
+        <div key={lineIndex} style={getParagraphStyle()}>
           {sentences.map((part, sentenceIndex) => {
             if (/^[.!?]+$/.test(part)) {
               const prevSentenceIndex = sentenceIndex - 1
@@ -222,7 +257,10 @@ export function InteractiveText({
 
   return (
     <div className="space-y-4">
-      <div className="prose prose-lg max-w-none leading-relaxed text-pretty break-words overflow-wrap-anywhere hyphens-auto">
+      <div
+        className="prose prose-lg max-w-none text-pretty break-words overflow-wrap-anywhere hyphens-auto"
+        style={getTextStyle()}
+      >
         {renderedText}
       </div>
 
