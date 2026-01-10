@@ -159,7 +159,10 @@ export function BookCard({ book, onDelete, onBookListChange }: BookCardProps) {
             </Badge>
           </div>
         </div>
-        <h3 className="font-semibold text-lg text-balance leading-tight mb-2 break-words overflow-wrap-anywhere hyphens-auto">
+        <h3
+          className="font-semibold text-lg mb-2 break-all overflow-wrap-anywhere hyphens-auto whitespace-normal max-w-full"
+          style={{ wordBreak: "break-all", overflowWrap: "anywhere", maxWidth: "100%" }}
+        >
           {book.title}
         </h3>
       </CardHeader>
