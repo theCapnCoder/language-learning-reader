@@ -31,6 +31,79 @@ const fontFamilies = [
   { value: '"Trebuchet MS", sans-serif', label: "Trebuchet MS" },
 ]
 
+// Компонент для управления параметром с плюс/минус кнопками
+const ControlWithButtons = ({
+  label,
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  unit = "",
+  formatValue = (v: number) => v.toString(),
+}: {
+  label: string
+  value: number
+  onChange: (value: number) => void
+  min: number
+  max: number
+  step: number
+  unit?: string
+  formatValue?: (value: number) => string
+}) => {
+  const handleDecrease = () => {
+    const newValue = Math.max(min, value - step)
+    onChange(newValue)
+  }
+
+  const handleIncrease = () => {
+    const newValue = Math.min(max, value + step)
+    onChange(newValue)
+  }
+
+  const progress = ((value - min) / (max - min)) * 100
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <span className="text-sm font-medium text-muted-foreground">
+          {formatValue(value)}
+          {unit}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={handleDecrease}
+          disabled={value <= min}
+        >
+          -
+        </Button>
+        <div className="flex-1 relative">
+          <div className="w-full h-2 bg-muted rounded-full">
+            <div
+              className="h-2 bg-primary rounded-full transition-all duration-200"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={handleIncrease}
+          disabled={value >= max}
+        >
+          +
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 const textAlignOptions = [
   { value: "left", label: "По левому краю" },
   { value: "center", label: "По центру" },
@@ -104,119 +177,70 @@ export function TextSettings({ settings, onSettingsChange }: TextSettingsProps) 
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Font Size */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Размер шрифта</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {settings?.fontSize}px
-              </span>
-            </div>
-            <Slider
-              value={[settings?.fontSize || 16]}
-              onValueChange={([value]) => updateSetting("fontSize", value)}
-              min={12}
-              max={32}
-              step={1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>12px</span>
-              <span>22px</span>
-              <span>32px</span>
-            </div>
-          </div>
+          <ControlWithButtons
+            label="Размер шрифта"
+            value={settings?.fontSize || 16}
+            onChange={(value) => updateSetting("fontSize", value)}
+            min={12}
+            max={32}
+            step={1}
+            unit="px"
+          />
 
           {/* Line Height */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Межстрочный интервал</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {(settings?.lineHeight || 1.6).toFixed(1)}
-              </span>
-            </div>
-            <Slider
-              value={[settings?.lineHeight || 1.6]}
-              onValueChange={([value]) => updateSetting("lineHeight", value)}
-              min={1.0}
-              max={3.0}
-              step={0.1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Плотный</span>
-              <span>Нормальный</span>
-              <span>Свободный</span>
-            </div>
-          </div>
+          <ControlWithButtons
+            label="Межстрочный интервал"
+            value={settings?.lineHeight || 1.6}
+            onChange={(value) => updateSetting("lineHeight", value)}
+            min={1.0}
+            max={3.0}
+            step={0.1}
+            formatValue={(value) => value.toFixed(1)}
+          />
 
           {/* Letter Spacing */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Межбуквенный интервал</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {settings?.letterSpacing || 0}px
-              </span>
-            </div>
-            <Slider
-              value={[settings?.letterSpacing || 0]}
-              onValueChange={([value]) => updateSetting("letterSpacing", value)}
-              min={-2}
-              max={5}
-              step={0.5}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Сжатый</span>
-              <span>Нормальный</span>
-              <span>Широкий</span>
-            </div>
-          </div>
+          <ControlWithButtons
+            label="Межбуквенный интервал"
+            value={settings?.letterSpacing || 0}
+            onChange={(value) => updateSetting("letterSpacing", value)}
+            min={-2}
+            max={5}
+            step={0.5}
+            unit="px"
+          />
 
           {/* Word Spacing */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Межсловный интервал</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {settings?.wordSpacing || 0}px
-              </span>
-            </div>
-            <Slider
-              value={[settings?.wordSpacing || 0]}
-              onValueChange={([value]) => updateSetting("wordSpacing", value)}
-              min={0}
-              max={10}
-              step={1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Плотный</span>
-              <span>Нормальный</span>
-              <span>Свободный</span>
-            </div>
-          </div>
+          <ControlWithButtons
+            label="Межсловный интервал"
+            value={settings?.wordSpacing || 0}
+            onChange={(value) => updateSetting("wordSpacing", value)}
+            min={0}
+            max={10}
+            step={1}
+            unit="px"
+          />
 
           {/* Paragraph Spacing */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Отступ между абзацами</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {settings?.paragraphSpacing || 16}px
-              </span>
-            </div>
-            <Slider
-              value={[settings?.paragraphSpacing || 16]}
-              onValueChange={([value]) => updateSetting("paragraphSpacing", value)}
-              min={0}
-              max={32}
-              step={2}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Нет</span>
-              <span>Нормальный</span>
-              <span>Большой</span>
-            </div>
-          </div>
+          <ControlWithButtons
+            label="Отступ между абзацами"
+            value={settings?.paragraphSpacing || 16}
+            onChange={(value) => updateSetting("paragraphSpacing", value)}
+            min={0}
+            max={32}
+            step={2}
+            unit="px"
+          />
+
+          {/* Translation Icon Size */}
+          <ControlWithButtons
+            label="Размер иконки перевода"
+            value={settings?.translationIconSize || 24}
+            onChange={(value) => updateSetting("translationIconSize", value)}
+            min={16}
+            max={32}
+            step={2}
+            unit="px"
+          />
 
           {/* Font Family */}
           <div className="space-y-2">
@@ -256,29 +280,6 @@ export function TextSettings({ settings, onSettingsChange }: TextSettingsProps) 
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Translation Icon Size */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Размер иконки перевода</Label>
-              <span className="text-sm font-medium text-muted-foreground">
-                {settings?.translationIconSize || 24}px
-              </span>
-            </div>
-            <Slider
-              value={[settings?.translationIconSize || 24]}
-              onValueChange={([value]) => updateSetting("translationIconSize", value)}
-              min={16}
-              max={32}
-              step={2}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Маленький</span>
-              <span>Нормальный</span>
-              <span>Большой</span>
-            </div>
           </div>
 
           {/* Quick Presets */}
