@@ -159,7 +159,9 @@ export function BookCard({ book, onDelete, onBookListChange }: BookCardProps) {
             </Badge>
           </div>
         </div>
-        <h3 className="font-semibold text-lg text-balance leading-tight mb-2">{book.title}</h3>
+        <h3 className="font-semibold text-lg text-balance leading-tight mb-2 break-words overflow-wrap-anywhere hyphens-auto">
+          {book.title}
+        </h3>
       </CardHeader>
 
       <CardContent className="pt-0">
