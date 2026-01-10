@@ -42,7 +42,8 @@ export function InteractiveText({
   textSettings,
 }: InteractiveTextProps) {
   const [translation, setTranslation] = useState<Translation | null>(null)
-  // No need for local state since we're using props now
+  const [displayMode, setDisplayMode] = useState<"modal" | "brackets">("modal")
+  const [bracketTranslations, setBracketTranslations] = useState<Map<string, string>>(new Map())
 
   // Get text styles from settings or use defaults
   const getTextStyle = () => ({
@@ -58,39 +59,86 @@ export function InteractiveText({
     marginBottom: `${textSettings?.paragraphSpacing || 16}px`,
   })
 
-  const handleWordClick = useCallback(async (word: string, sentence: string) => {
-    const settings = LocalDB.getSettings()
+  const handleWordClick = useCallback(
+    async (word: string, sentence: string) => {
+      if (displayMode === "brackets") {
+        // В режиме скобок отправляем запрос на сервер с контекстом
+        const settings = LocalDB.getSettings()
 
-    if (!settings.groqApiKey) {
+        if (!settings.groqApiKey) {
+          setBracketTranslations((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(word, "API ключ не настроен")
+            return newMap
+          })
+          return
+        }
+
+        // Сначала показываем заглушку
+        setBracketTranslations((prev) => {
+          const newMap = new Map(prev)
+          newMap.set(word, "переводим...")
+          return newMap
+        })
+
+        try {
+          const translationContent = await GroqAPI.translateWordWithBrackets(
+            word,
+            sentence,
+            settings.groqApiKey
+          )
+          setBracketTranslations((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(word, translationContent)
+            return newMap
+          })
+        } catch (error) {
+          setBracketTranslations((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(
+              word,
+              `ошибка: ${error instanceof Error ? error.message : "неизвестная ошибка"}`
+            )
+            return newMap
+          })
+        }
+        return
+      }
+
+      const settings = LocalDB.getSettings()
+
+      if (!settings.groqApiKey) {
+        setTranslation({
+          word,
+          content: "API ключ Groq не настроен. Перейдите в настройки для его добавления.",
+          loading: false,
+        })
+        return
+      }
+
       setTranslation({
         word,
-        content: "API ключ Groq не настроен. Перейдите в настройки для его добавления.",
-        loading: false,
+        content: "",
+        loading: true,
       })
-      return
-    }
 
-    setTranslation({
-      word,
-      content: "",
-      loading: true,
-    })
-
-    try {
-      const translationContent = await GroqAPI.translateWord(word, sentence, settings.groqApiKey)
-      setTranslation({
-        word,
-        content: translationContent,
-        loading: false,
-      })
-    } catch (error) {
-      setTranslation({
-        word,
-        content: `Ошибка перевода: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
-        loading: false,
-      })
-    }
-  }, [])
+      try {
+        const translationContent = await GroqAPI.translateWord(word, sentence, settings.groqApiKey)
+        setTranslation({
+          word,
+          content: translationContent,
+          loading: false,
+        })
+      } catch (error) {
+        setTranslation({
+          word,
+          content: `Ошибка перевода: ${error instanceof Error ? error.message : "Неизвестная ошибка"}`,
+          loading: false,
+        })
+      }
+    },
+    [displayMode]
+  )
 
   const handleAddWordAsKnown = useCallback(() => {
     if (!translation?.word) return
@@ -223,6 +271,7 @@ export function InteractiveText({
                   const baseWord = cleanWord.replace(/'s$/, "")
                   const isKnown =
                     cleanWord && (knownWords.has(cleanWord) || knownWords.has(baseWord))
+                  const bracketTranslation = bracketTranslations.get(cleanWord)
                   return (
                     <span key={wordIndex} className="relative">
                       <span
@@ -236,6 +285,12 @@ export function InteractiveText({
                       >
                         {word}
                       </span>
+                      {bracketTranslation && (
+                        <span className="text-muted-foreground text-sm">
+                          {" "}
+                          ({bracketTranslation})
+                        </span>
+                      )}
                     </span>
                   )
                 })}
@@ -253,10 +308,30 @@ export function InteractiveText({
     loadingSentences,
     handleWordClick,
     handleSentenceTranslate,
+    bracketTranslations,
+    displayMode,
   ])
 
   return (
     <div className="space-y-4">
+      {/* Кнопка переключения режима */}
+      <div className="flex gap-2 mb-4">
+        <Button
+          variant={displayMode === "modal" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setDisplayMode("modal")}
+        >
+          Модальное окно
+        </Button>
+        <Button
+          variant={displayMode === "brackets" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setDisplayMode("brackets")}
+        >
+          Скобки
+        </Button>
+      </div>
+
       <div
         className="prose prose-lg max-w-none text-pretty break-words overflow-wrap-anywhere hyphens-auto"
         style={getTextStyle()}
@@ -264,8 +339,8 @@ export function InteractiveText({
         {renderedText}
       </div>
 
-      {/* Word translation popup */}
-      {translation?.word && (
+      {/* Word translation popup - только в режиме модального окна */}
+      {displayMode === "modal" && translation?.word && (
         <Card className="fixed bottom-4 right-4 max-w-sm z-50 shadow-lg">
           <CardContent className="p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -274,7 +349,7 @@ export function InteractiveText({
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 border border-gray-300 hover:border-gray-400 hover:bg-gray-50"
                     onClick={handleAddWordAsKnown}
                     title="Добавить как изученное"
                   >

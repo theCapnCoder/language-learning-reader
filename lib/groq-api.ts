@@ -62,6 +62,64 @@ export class GroqAPI {
     }
   }
 
+  static async translateWordWithBrackets(
+    word: string,
+    sentence: string,
+    apiKey: string
+  ): Promise<string> {
+    if (!apiKey) {
+      throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
+    }
+
+    const currentLanguage =
+      typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
+
+    // Создаем улучшенный контекст с тремя предложениями
+    const prompt = `Переведи на русский язык слово "${word}" в контексте предложения "${sentence}". 
+
+ВНИМАНИЕ: В ответе укажи ТОЛЬКО ОДНО слово или короткую фразу (2-3 слова максимум) - точный перевод слова "${word}". Никаких объяснений, грамматических разборов, примеров или дополнительной информации. Только перевод!
+
+Текущий язык: ${currentLanguage === "de" ? "немецкий" : "английский"}`
+
+    try {
+      const response = await fetch(this.API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.MODEL,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ошибка API: ${response.status} ${response.statusText}`)
+      }
+
+      const data: GroqResponse = await response.json()
+      let translation = data.choices[0]?.message?.content || "Перевод недоступен"
+
+      // Очищаем ответ от лишнего, оставляем только первое слово/фразу
+      translation = translation
+        .replace(/^.*?:\s*["']?/, "")
+        .replace(/["']?\s*$/, "")
+        .replace(/\n.*$/, "")
+        .trim()
+
+      return translation
+    } catch (error) {
+      console.error("Ошибка при переводе слова:", error)
+      throw error
+    }
+  }
+
   static async translateWord(word: string, sentence: string, apiKey: string): Promise<string> {
     if (!apiKey) {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
