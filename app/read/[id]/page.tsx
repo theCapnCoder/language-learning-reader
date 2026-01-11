@@ -218,7 +218,17 @@ export default function ReadBookPage() {
     <div className="mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="icon" onClick={() => router.push("/")}>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            if (book.folderId) {
+              router.push(`/?folder=${book.folderId}`)
+            } else {
+              router.push("/")
+            }
+          }}
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
