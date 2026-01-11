@@ -54,6 +54,7 @@ export default function HomePage() {
   const [editingFolder, setEditingFolder] = useState<string | null>(null)
   const [editName, setEditName] = useState("")
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [deleteConfirmFolder, setDeleteConfirmFolder] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>("titleAsc")
   const { toast } = useToast()
 
@@ -111,10 +112,8 @@ export default function HomePage() {
   }
 
   const handleDeleteFolder = (folderId: string) => {
-    // Move books from this folder to root
-    const updatedBooks = books.map((book) =>
-      book.folderId === folderId ? { ...book, folderId: undefined } : book
-    )
+    // Delete all books in this folder
+    const updatedBooks = books.filter((book) => book.folderId !== folderId)
     setBooks(updatedBooks)
     LocalDB.saveBooks(updatedBooks)
 
@@ -124,9 +123,12 @@ export default function HomePage() {
     setFolders(updatedFolders)
     setCurrentFolderId(null)
 
+    const folderName = folders.find((f) => f.id === folderId)?.name || "Папка"
+    const deletedBookCount = books.filter((book) => book.folderId === folderId).length
+
     toast({
-      title: "Папка удалена",
-      description: "Папка была удалена, книги перемещены в корень",
+      title: "Папка и книги удалены",
+      description: `Папка "${folderName}" и ${deletedBookCount} книг(и) были удалены`,
     })
   }
 
@@ -215,7 +217,7 @@ export default function HomePage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => handleDeleteFolder(currentFolder.id)}
+                onClick={() => setDeleteConfirmFolder(currentFolder.id)}
                 className="text-destructive hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -256,6 +258,41 @@ export default function HomePage() {
                 </Button>
                 <Button variant="outline" onClick={() => setEditingFolder(null)}>
                   <X className="h-4 w-4 mr-2" />
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {deleteConfirmFolder && (
+        <Dialog open={!!deleteConfirmFolder} onOpenChange={() => setDeleteConfirmFolder(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Подтверждение удаления</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-muted-foreground">
+                Вы уверены, что хотите удалить папку "
+                {folders.find((f) => f.id === deleteConfirmFolder)?.name}" и все книги в ней?
+              </p>
+              <p className="text-sm text-destructive">
+                Это действие нельзя отменить. Будет удалено{" "}
+                {books.filter((book) => book.folderId === deleteConfirmFolder).length} книг(и).
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    handleDeleteFolder(deleteConfirmFolder)
+                    setDeleteConfirmFolder(null)
+                  }}
+                  variant="destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Удалить папку и книги
+                </Button>
+                <Button variant="outline" onClick={() => setDeleteConfirmFolder(null)}>
                   Отмена
                 </Button>
               </div>
@@ -311,9 +348,20 @@ export default function HomePage() {
             return (
               <div
                 key={folder.id}
-                className="flex flex-col items-center p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors"
+                className="flex flex-col items-center p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors relative group"
                 onClick={() => setCurrentFolderId(folder.id)}
               >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setDeleteConfirmFolder(folder.id)
+                  }}
+                >
+                  <Trash2 className="h-3 w-3 text-destructive" />
+                </Button>
                 <Folder className="h-12 w-12 text-blue-500 mb-2" />
                 <span className="text-sm font-medium text-center">{folder.name}</span>
                 <span className="text-xs text-muted-foreground">{folderBookCount} книг</span>
