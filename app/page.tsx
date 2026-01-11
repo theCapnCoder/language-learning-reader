@@ -166,9 +166,9 @@ export default function HomePage() {
         case "difficultyDesc":
           return (b.difficultyPercentage || 0) - (a.difficultyPercentage || 0)
         case "titleAsc":
-          return a.title.localeCompare(b.title)
+          return a.title.localeCompare(b.title, undefined, { numeric: true })
         case "titleDesc":
-          return b.title.localeCompare(a.title)
+          return b.title.localeCompare(a.title, undefined, { numeric: true })
         default:
           return 0
       }
@@ -343,31 +343,44 @@ export default function HomePage() {
 
       {!currentFolderId && folders.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-          {folders.map((folder) => {
-            const folderBookCount = books.filter((book) => book.folderId === folder.id).length
-            return (
-              <div
-                key={folder.id}
-                className="flex flex-col items-center p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors relative group"
-                onClick={() => setCurrentFolderId(folder.id)}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setDeleteConfirmFolder(folder.id)
-                  }}
+          {folders
+            .sort((a, b) => {
+              // Try to extract numbers from folder names for numeric sorting
+              const aNum = parseInt(a.name.replace(/\D/g, ""))
+              const bNum = parseInt(b.name.replace(/\D/g, ""))
+
+              if (!isNaN(aNum) && !isNaN(bNum)) {
+                return aNum - bNum
+              }
+
+              // Fallback to string comparison
+              return a.name.localeCompare(b.name, undefined, { numeric: true })
+            })
+            .map((folder) => {
+              const folderBookCount = books.filter((book) => book.folderId === folder.id).length
+              return (
+                <div
+                  key={folder.id}
+                  className="flex flex-col items-center p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors relative group"
+                  onClick={() => setCurrentFolderId(folder.id)}
                 >
-                  <Trash2 className="h-3 w-3 text-destructive" />
-                </Button>
-                <Folder className="h-12 w-12 text-blue-500 mb-2" />
-                <span className="text-sm font-medium text-center">{folder.name}</span>
-                <span className="text-xs text-muted-foreground">{folderBookCount} книг</span>
-              </div>
-            )
-          })}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setDeleteConfirmFolder(folder.id)
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3 text-destructive" />
+                  </Button>
+                  <Folder className="h-12 w-12 text-blue-500 mb-2" />
+                  <span className="text-sm font-medium text-center">{folder.name}</span>
+                  <span className="text-xs text-muted-foreground">{folderBookCount} книг</span>
+                </div>
+              )
+            })}
         </div>
       )}
 
