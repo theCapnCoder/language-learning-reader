@@ -118,7 +118,7 @@ export function SplitBookDialog({
         const analysis = TextAnalyzer.analyzeBookDifficulty(part, knownWords)
 
         return {
-          id: Date.now().toString(),
+          id: `${Date.now()}_${index}`, // Unique ID for each part
           title: `(${index + 1}/${parts.length}) ${book.title} `,
           content: part,
           fileName: `${book.fileName.replace(/\.[^/.]+$/, "")}_part${index + 1}.txt`,

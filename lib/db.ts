@@ -165,8 +165,8 @@ export class LocalDB {
       this.saveBooks(sortedBooks.slice(0, 20))
     }
 
-    // Clear any other non-essential data
-    localStorage.removeItem(STORAGE_KEYS.FOLDERS) // Folders can be recreated
+    // Don't delete folders - they are user-created and important
+    // Only clear temporary cache data if needed
   }
 
   static getSettings(): AppSettings {

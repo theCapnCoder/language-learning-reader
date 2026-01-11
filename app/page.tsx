@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useSearchParams, useRouter } from "next/navigation"
 import { BookUpload } from "@/components/book-upload"
 import { BookCard } from "@/components/book-card"
 import { Button } from "@/components/ui/button"
@@ -45,6 +46,8 @@ import {
 } from "@/components/ui/select"
 
 export default function HomePage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [books, setBooks] = useState<Book[]>([])
   const [folders, setFolders] = useState<Array<{ id: string; name: string; createdDate: Date }>>([])
   const [searchQuery, setSearchQuery] = useState("")
@@ -68,6 +71,36 @@ export default function HomePage() {
     const loadedBooks = LocalDB.getBooks()
     setBooks(loadedBooks)
     refreshFolders()
+
+    // Check for folder parameter in URL
+    const folderParam = searchParams.get("folder")
+    if (folderParam) {
+      setCurrentFolderId(folderParam)
+    } else {
+      // Reset to null if no folder parameter
+      setCurrentFolderId(null)
+    }
+  }, [refreshFolders, searchParams])
+
+  // Add additional effect to handle data refresh when currentFolderId changes
+  useEffect(() => {
+    const loadedBooks = LocalDB.getBooks()
+    setBooks(loadedBooks)
+    refreshFolders()
+  }, [currentFolderId, refreshFolders])
+
+  // Add effect to handle page visibility changes (when user returns to tab)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        const loadedBooks = LocalDB.getBooks()
+        setBooks(loadedBooks)
+        refreshFolders()
+      }
+    }
+
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [refreshFolders])
 
   const handleBooksUploaded = useCallback(
@@ -112,24 +145,38 @@ export default function HomePage() {
   }
 
   const handleDeleteFolder = (folderId: string) => {
-    // Delete all books in this folder
-    const updatedBooks = books.filter((book) => book.folderId !== folderId)
-    setBooks(updatedBooks)
-    LocalDB.saveBooks(updatedBooks)
+    try {
+      // Count books in folder before deletion
+      const booksInFolder = books.filter((book) => book.folderId === folderId)
+      const deletedBookCount = booksInFolder.length
 
-    // Delete folder
-    const updatedFolders = folders.filter((folder) => folder.id !== folderId)
-    LocalDB.saveFolders(updatedFolders)
-    setFolders(updatedFolders)
-    setCurrentFolderId(null)
+      // Delete all books in this folder
+      const updatedBooks = books.filter((book) => book.folderId !== folderId)
+      setBooks(updatedBooks)
+      LocalDB.saveBooks(updatedBooks)
 
-    const folderName = folders.find((f) => f.id === folderId)?.name || "Папка"
-    const deletedBookCount = books.filter((book) => book.folderId === folderId).length
+      // Delete folder
+      const updatedFolders = folders.filter((folder) => folder.id !== folderId)
+      LocalDB.saveFolders(updatedFolders)
+      setFolders(updatedFolders)
+      setCurrentFolderId(null)
 
-    toast({
-      title: "Папка и книги удалены",
-      description: `Папка "${folderName}" и ${deletedBookCount} книг(и) были удалены`,
-    })
+      // Navigate to home page
+      router.push("/")
+
+      const folderName = folders.find((f) => f.id === folderId)?.name || "Папка"
+
+      toast({
+        title: "Папка и книги удалены",
+        description: `Папка "${folderName}" и ${deletedBookCount} книг(и) были удалены`,
+      })
+    } catch (error) {
+      console.error("Error deleting folder:", error)
+      toast({
+        title: "Ошибка удаления",
+        description: "Не удалось удалить папку. Попробуйте еще раз.",
+      })
+    }
   }
 
   const handleEditFolder = (folderId: string, newName: string) => {
@@ -186,7 +233,10 @@ export default function HomePage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setCurrentFolderId(null)}
+                onClick={() => {
+                  setCurrentFolderId(null)
+                  router.push("/")
+                }}
                 className="p-1"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -362,7 +412,10 @@ export default function HomePage() {
                 <div
                   key={folder.id}
                   className="flex flex-col items-center p-4 rounded-lg border hover:bg-accent cursor-pointer transition-colors relative group"
-                  onClick={() => setCurrentFolderId(folder.id)}
+                  onClick={() => {
+                    setCurrentFolderId(folder.id)
+                    router.push(`/?folder=${folder.id}`)
+                  }}
                 >
                   <Button
                     variant="ghost"
