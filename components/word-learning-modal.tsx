@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef } from "react"
 import { Button } from "./ui/button"
-import { X, Plus } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
+import { X, Plus, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import { GroqAPI } from "@/lib/groq-api"
 import { LocalDB } from "@/lib/db"
 
@@ -17,6 +18,116 @@ interface WordLearningModalProps {
   onClose: () => void
 }
 
+// Вспомогательные функции для управления кэшем переводов
+const TranslationCache = {
+  // Ключи для localStorage
+  CACHE_KEY: "wordLearningTranslations",
+  RESET_KEY: "wordLearningCacheReset",
+
+  // Получить кэш переводов
+  getCache(): Record<
+    string,
+    { wordTranslation: string; sentenceTranslation: string; explanation: string; timestamp: number }
+  > {
+    try {
+      const cached = localStorage.getItem(this.CACHE_KEY)
+      return cached ? JSON.parse(cached) : {}
+    } catch {
+      return {}
+    }
+  },
+
+  // Сохранить перевод в кэш
+  saveTranslation(
+    word: string,
+    sentence: string,
+    wordTranslation: string,
+    sentenceTranslation: string,
+    explanation: string
+  ) {
+    try {
+      const cache = this.getCache()
+      const key = `${word.toLowerCase()}_${sentence.slice(0, 50)}` // Уникальный ключ для слова+предложения
+
+      cache[key] = {
+        wordTranslation,
+        sentenceTranslation,
+        explanation,
+        timestamp: Date.now(),
+      }
+
+      localStorage.setItem(this.CACHE_KEY, JSON.stringify(cache))
+    } catch (error) {
+      console.warn("Ошибка сохранения в кэш:", error)
+    }
+  },
+
+  // Получить перевод из кэша
+  getTranslation(
+    word: string,
+    sentence: string
+  ): { wordTranslation: string; sentenceTranslation: string; explanation: string } | null {
+    try {
+      const cache = this.getCache()
+      const key = `${word.toLowerCase()}_${sentence.slice(0, 50)}`
+      const cached = cache[key]
+
+      // Проверяем что кэш не старше 24 часов
+      if (cached && Date.now() - cached.timestamp < 24 * 60 * 60 * 1000) {
+        return {
+          wordTranslation: cached.wordTranslation,
+          sentenceTranslation: cached.sentenceTranslation,
+          explanation: cached.explanation,
+        }
+      }
+
+      return null
+    } catch {
+      return null
+    }
+  },
+
+  // Сбросить кэш при первом запуске
+  resetOnFirstLoad() {
+    try {
+      const hasReset = localStorage.getItem(this.RESET_KEY)
+
+      if (!hasReset) {
+        // Первый запуск - сбрасываем кэш
+        localStorage.removeItem(this.CACHE_KEY)
+        localStorage.setItem(this.RESET_KEY, Date.now().toString())
+        console.log("Кэш переводов сброшен при первом запуске")
+      }
+    } catch (error) {
+      console.warn("Ошибка сброса кэша:", error)
+    }
+  },
+
+  // Очистка старого кэша (старше 24 часов)
+  cleanupOldCache() {
+    try {
+      const cache = this.getCache()
+      const now = Date.now()
+      const dayInMs = 24 * 60 * 60 * 1000
+
+      let hasChanges = false
+      Object.keys(cache).forEach((key) => {
+        if (now - cache[key].timestamp > dayInMs) {
+          delete cache[key]
+          hasChanges = true
+        }
+      })
+
+      if (hasChanges) {
+        localStorage.setItem(this.CACHE_KEY, JSON.stringify(cache))
+        console.log("Старый кэш переводов очищен")
+      }
+    } catch (error) {
+      console.warn("Ошибка очистки кэша:", error)
+    }
+  },
+}
+
 // Вспомогательная функция для проверки, является ли слово загружаемым
 const isWordLoadable = (word: string | undefined | null): boolean => {
   return !!(word && word.trim().length > 0)
@@ -27,11 +138,41 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
   const [isLoading, setIsLoading] = useState(false)
   const [wordTranslation, setWordTranslation] = useState<string | null>(null)
   const [sentenceTranslation, setSentenceTranslation] = useState<string | null>(null)
+  const [wordExplanation, setWordExplanation] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const prevIndexRef = useRef(-1)
   const isInitialMount = useRef(true)
 
-  const currentWord = words[currentIndex]
+  // Pagination states
+  const [wordsPerPage, setWordsPerPage] = useState(10)
+  const [currentPage, setCurrentPage] = useState(0)
+
+  // Load words per page from localStorage on mount и инициализация кэша
+  useEffect(() => {
+    // Инициализация кэша при первом запуске
+    TranslationCache.resetOnFirstLoad()
+
+    // Очистка старого кэша
+    TranslationCache.cleanupOldCache()
+
+    const savedWordsPerPage = localStorage.getItem("wordLearningWordsPerPage")
+    if (savedWordsPerPage) {
+      const value = parseInt(savedWordsPerPage)
+      if ([10, 20, 30].includes(value)) {
+        setWordsPerPage(value)
+      }
+    }
+  }, [])
+
+  // Calculate pagination
+  const totalPages = Math.ceil(words.length / wordsPerPage)
+  const startIndex = currentPage * wordsPerPage
+  const endIndex = Math.min(startIndex + wordsPerPage, words.length)
+  const currentWords = words.slice(startIndex, endIndex)
+  const actualCurrentIndex = startIndex + currentIndex
+
+  // Исправляю порядок объявлений - сначала вычисляю currentWords, потом использую его для currentWord
+  const currentWord = currentWords[currentIndex]
 
   // Загружаем перевод для текущего слова и предложения
   const loadTranslation = useCallback(async () => {
@@ -44,6 +185,19 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
       setIsLoading(true)
       setError(null)
 
+      // Сначала проверяем кэш
+      const cached = TranslationCache.getTranslation(currentWord.word, currentWord.sentence)
+
+      if (cached) {
+        // Используем кэшированные данные
+        setWordTranslation(cached.wordTranslation)
+        setSentenceTranslation(cached.sentenceTranslation)
+        setWordExplanation(cached.explanation)
+        setIsLoading(false)
+        console.log("Использован кэшированный перевод для:", currentWord.word)
+        return
+      }
+
       // Получаем API ключ
       const settings = LocalDB.getSettings()
       const apiKey = settings?.groqApiKey || ""
@@ -52,73 +206,102 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
         throw new Error("API ключ Groq не настроен")
       }
 
-      // Загружаем перевод слова
-      const wordTrans = await GroqAPI.translateText(currentWord.word, currentWord.sentence)
-      setWordTranslation(wordTrans)
+      // Загружаем все данные параллельно
+      const [wordTrans, sentTrans, explanation] = await Promise.all([
+        GroqAPI.translateText(currentWord.word, currentWord.sentence),
+        GroqAPI.translateSentence(currentWord.sentence, apiKey),
+        GroqAPI.explainWordInContext(currentWord.word, currentWord.sentence),
+      ])
 
-      // Загружаем перевод предложения
-      const sentTrans = await GroqAPI.translateSentence(currentWord.sentence, apiKey)
+      // Сохраняем в кэш
+      TranslationCache.saveTranslation(
+        currentWord.word,
+        currentWord.sentence,
+        wordTrans,
+        sentTrans,
+        explanation
+      )
+
+      setWordTranslation(wordTrans)
       setSentenceTranslation(sentTrans)
+      setWordExplanation(explanation)
+      console.log("Перевод загружен и сохранен в кэш для:", currentWord.word)
     } catch (err) {
       console.error("Translation error:", err)
       setError("Ошибка при загрузке перевода")
       setWordTranslation(null)
       setSentenceTranslation(null)
+      setWordExplanation(null)
     } finally {
       setIsLoading(false)
     }
-  }, [currentIndex, currentWord, isOpen])
+  }, [currentIndex, currentWord, isOpen, currentPage])
 
-  // Обработчик для кнопки "Повторить"
+  // Обработчик для загрузки перевода по клику
+  const handleLoadTranslation = () => {
+    loadTranslation()
+  }
   const handleRetry = useCallback(() => {
     if (currentWord) {
       // Сбрасываем текущие переводы и загружаем заново
       setWordTranslation(null)
       setSentenceTranslation(null)
+      setWordExplanation(null)
       loadTranslation()
     }
   }, [currentWord, loadTranslation])
 
-  // Эффект для загрузки перевода при изменении индекса или открытии модального окна
+  // Эффект для загрузки перевода при изменении индекса или страницы
   useEffect(() => {
     if (!isOpen) return
 
-    // Пропускаем первый рендер, если это не открытие модального окна
+    // Пропускаем первый рендер
     if (isInitialMount.current) {
       isInitialMount.current = false
       return
     }
 
-    // Загружаем перевод только если изменился индекс или это первое открытие
+    // Загружаем перевод если изменился индекс
     if (prevIndexRef.current !== currentIndex) {
       loadTranslation()
       prevIndexRef.current = currentIndex
     }
   }, [isOpen, currentIndex, loadTranslation])
 
-  // Эффект для загрузки перевода при первом открытии модального окна
+  // Эффект для первого открытия модального окна
   useEffect(() => {
     if (isOpen && isInitialMount.current) {
-      loadTranslation()
+      // Загружаем перевод для первого слова
+      setTimeout(() => {
+        loadTranslation()
+      }, 0)
       isInitialMount.current = false
     }
   }, [isOpen, loadTranslation])
 
   const handleNext = () => {
-    if (currentIndex < words.length - 1) {
-      // Обновляем индекс и сбрасываем переводы
+    if (currentIndex < currentWords.length - 1) {
+      // Обновляем индекс но НЕ сбрасываем переводы
       setCurrentIndex((prev) => prev + 1)
-      setWordTranslation(null)
-      setSentenceTranslation(null)
+      // Загружаем перевод автоматически
+    } else if (currentPage < totalPages - 1) {
+      // Переходим на следующую страницу
+      setCurrentPage((prev) => prev + 1)
+      setCurrentIndex(0)
+      // Загружаем перевод автоматически
     }
   }
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      // Обновляем индекс и сбрасываем переводы
+      // Обновляем индекс но НЕ сбрасываем переводы
       setCurrentIndex((prev) => prev - 1)
-      setWordTranslation(null)
-      setSentenceTranslation(null)
+      // Загружаем перевод автоматически
+    } else if (currentPage > 0) {
+      // Переходим на предыдущую страницу
+      setCurrentPage((prev) => prev - 1)
+      setCurrentIndex(wordsPerPage - 1)
+      // Загружаем перевод автоматически
     }
   }
 
@@ -133,6 +316,53 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
       setError("Не удалось добавить слово в словарь")
     }
   }, [currentWord?.word, handleNext])
+
+  // Reset current index when page changes
+  useEffect(() => {
+    if (currentPage === 0 && isInitialMount.current) {
+      // Don't reset on initial mount with page 0
+      return
+    }
+
+    setCurrentIndex(0)
+    // НЕ сбрасываем переводы - пусть остаются на месте во время загрузки
+    // Загружаем перевод для первого слова новой страницы
+    setTimeout(() => {
+      if (isOpen && words.length > 0 && currentWords.length > 0) {
+        loadTranslation()
+      }
+    }, 0)
+  }, [currentPage, isOpen, words.length, currentWords.length])
+
+  // Reset to first page when words per page changes
+  const handleWordsPerPageChange = (newWordsPerPage: number) => {
+    setWordsPerPage(newWordsPerPage)
+    setCurrentPage(0)
+    setCurrentIndex(0)
+    // НЕ сбрасываем переводы при изменении количества слов
+    // Save to localStorage
+    localStorage.setItem("wordLearningWordsPerPage", newWordsPerPage.toString())
+    // Загружаем перевод для первого слова
+    setTimeout(() => {
+      if (isOpen && words.length > 0) {
+        loadTranslation()
+      }
+    }, 0)
+  }
+
+  // Handle page navigation
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 0 && newPage < totalPages) {
+      setCurrentPage(newPage)
+      // Reset index but НЕ сбрасываем переводы
+      setCurrentIndex(0)
+      setTimeout(() => {
+        if (isOpen && words.length > 0) {
+          loadTranslation()
+        }
+      }, 0)
+    }
+  }
 
   if (!isOpen || !currentWord) return null
 
@@ -175,44 +405,95 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
           </button>
         </div>
 
+        {/* Pagination controls */}
+        <div className="flex items-center justify-between mb-4 p-3 bg-gray-100 rounded-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">Слов на странице:</span>
+            <Select
+              value={wordsPerPage.toString()}
+              onValueChange={(value) => handleWordsPerPageChange(parseInt(value))}
+            >
+              <SelectTrigger className="w-20 h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="30">30</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">
+              Страница {currentPage + 1} из {totalPages} (всего слов: {words.length})
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 0}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages - 1}
+              className="h-8 w-8 p-0"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
         <div className="space-y-6">
-          <div className="p-4 bg-gray-50 rounded-lg">
+          <div className="p-4 bg-gray-50 rounded-lg relative">
+            {isLoading && (
+              <div className="absolute top-2 right-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              </div>
+            )}
             <h3 className="text-lg font-semibold mb-2">Слово:</h3>
             <p className="text-2xl font-bold">{currentWord.word}</p>
-            {isLoading ? (
-              <p className="text-gray-500 mt-2">Загрузка перевода...</p>
-            ) : wordTranslation ? (
+            {wordTranslation ? (
               <p className="text-lg mt-2">
                 <span className="text-gray-500">Перевод:</span> {wordTranslation}
               </p>
             ) : (
-              <p className="text-gray-500 mt-2">Нажмите для загрузки перевода</p>
+              <p className="text-gray-500 mt-2">Перевод появится здесь</p>
             )}
           </div>
 
-          <div className="p-4 bg-gray-50 rounded-lg">
+          {wordExplanation && (
+            <div className="p-4 bg-blue-50 rounded-lg relative">
+              <h3 className="text-lg font-semibold mb-2">Объяснение:</h3>
+              <p className="text-gray-700">{wordExplanation}</p>
+            </div>
+          )}
+
+          <div className="p-4 bg-gray-50 rounded-lg relative">
+            {isLoading && (
+              <div className="absolute top-2 right-2">
+                <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+              </div>
+            )}
             <h3 className="text-lg font-semibold mb-2">В предложении:</h3>
             <p className="text-lg">{highlightWord(currentWord.sentence, currentWord.word)}</p>
-            {isLoading ? (
-              <p className="text-gray-500 mt-2">Загрузка перевода предложения...</p>
-            ) : sentenceTranslation ? (
+            {sentenceTranslation ? (
               <p className="mt-2 text-gray-700">
                 <span className="text-gray-500">Перевод:</span> {sentenceTranslation}
               </p>
             ) : (
-              <p className="text-gray-500 mt-2">Нажмите для загрузки перевода</p>
+              <p className="text-gray-500 mt-2">Перевод предложения появится здесь</p>
             )}
           </div>
 
-          {isLoading && (
-            <div className="text-center py-4">
-              <p>Загрузка перевода...</p>
-              <div className="animate-pulse mt-2">
-                <div className="h-2 bg-gray-200 rounded w-3/4 mx-auto"></div>
-                <div className="h-2 bg-gray-200 rounded w-1/2 mx-auto mt-2"></div>
-              </div>
-            </div>
-          )}
           {error && (
             <div className="text-center py-2">
               <p className="text-red-500 mb-2">{error}</p>
@@ -225,15 +506,22 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
           <div className="flex justify-between mt-6">
             <Button
               onClick={handlePrevious}
-              disabled={currentIndex === 0 || isLoading}
+              disabled={(currentIndex === 0 && currentPage === 0) || isLoading}
               variant="outline"
             >
               Назад
             </Button>
             <div className="text-gray-500">
-              {currentIndex + 1} / {words.length}
+              {currentIndex + 1} / {currentWords.length} (страница {currentPage + 1} из {totalPages}
+              )
             </div>
-            <Button onClick={handleNext} disabled={currentIndex === words.length - 1 || isLoading}>
+            <Button
+              onClick={handleNext}
+              disabled={
+                (currentIndex === currentWords.length - 1 && currentPage === totalPages - 1) ||
+                isLoading
+              }
+            >
               Далее
             </Button>
           </div>
