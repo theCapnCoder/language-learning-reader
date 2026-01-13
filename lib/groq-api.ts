@@ -166,6 +166,63 @@ export class GroqAPI {
     }
   }
 
+  static async explainWordInContext(word: string, sentence: string): Promise<string> {
+    console.log({ word, sentence })
+    // Get API key from settings
+    let apiKey = ""
+    if (typeof window !== "undefined") {
+      const settings = LocalDB.getSettings()
+      apiKey = settings?.groqApiKey || ""
+    }
+
+    if (!apiKey) {
+      throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
+    }
+
+    const currentLanguage =
+      typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
+
+    const prompt = `Дай краткое объяснение слова "${word}" в контексте предложения: "${sentence}". 
+
+Текущий язык: ${currentLanguage === "de" ? "немецкий" : "английский"}
+
+Объясни:
+1. Основное значение слова в данном контексте
+2. Особенности использования (если это фразовый глагол, идиома, или отделяемая приставка в немецком)
+3. Почему именно такой перевод подходит к этому предложению
+
+Ответ дай кратко, 2-3 предложения, на русском языке.`
+
+    try {
+      const response = await fetch(this.API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.MODEL,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ошибка API: ${response.status} ${response.statusText}`)
+      }
+
+      const data: GroqResponse = await response.json()
+      return data.choices[0]?.message?.content || "Объяснение недоступно"
+    } catch (error) {
+      console.error("Ошибка при объяснении слова:", error)
+      throw error
+    }
+  }
+
   static async translateSentence(sentence: string, apiKey: string): Promise<string> {
     if (!apiKey) {
       throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
