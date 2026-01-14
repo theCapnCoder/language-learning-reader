@@ -277,6 +277,102 @@ export class GroqAPI {
       throw error
     }
   }
+
+  // Новый метод для получения всех данных о слове одним запросом
+  static async getWordDataComplete(
+    word: string,
+    sentence: string,
+    apiKey: string
+  ): Promise<{
+    wordTranslation: string
+    sentenceTranslation: string
+    explanation: string
+  }> {
+    if (!apiKey) {
+      throw new Error("API ключ Groq не настроен. Перейдите в настройки для его добавления.")
+    }
+
+    const currentLanguage =
+      typeof window !== "undefined" ? localStorage.getItem("currentLanguage") || "en" : "en"
+
+    const prompt = `Дай полную информацию о слове "${word}" из предложения: "${sentence}".
+
+Текущий язык: ${currentLanguage === "de" ? "немецкий" : "английский"}
+
+Отвечай в следующем формате, строго по разделам:
+
+===ПЕРЕВОД СЛОВА===
+[Только перевод слова "${word}" на русский язык, 1-2 слова максимум]
+
+===ПЕРЕВОД ПРЕДЛОЖЕНИЯ===
+[Полный перевод предложения "${sentence}" на русский язык]
+
+===ОБЪЯСНЕНИЕ===
+[Краткое объяснение слова "${word}" в контексте предложения: 2-3 предложения на русском языке]`
+
+    try {
+      const response = await fetch(this.API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.MODEL,
+          messages: [
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Ошибка API: ${response.status} ${response.statusText}`)
+      }
+
+      const data: GroqResponse = await response.json()
+      const content = data.choices[0]?.message?.content || ""
+
+      // Парсим ответ по разделам
+      const sections = content.split("===").filter((section) => section.trim())
+
+      let wordTranslation = ""
+      let sentenceTranslation = ""
+      let explanation = ""
+
+      for (let i = 0; i < sections.length; i++) {
+        const section = sections[i].trim()
+
+        if (section === "ПЕРЕВОД СЛОВА") {
+          // Следующий элемент после заголовка - это содержимое
+          if (i + 1 < sections.length) {
+            wordTranslation = sections[i + 1].replace(/\n/g, "").trim()
+          }
+        } else if (section === "ПЕРЕВОД ПРЕДЛОЖЕНИЯ") {
+          // Следующий элемент после заголовка - это содержимое
+          if (i + 1 < sections.length) {
+            sentenceTranslation = sections[i + 1].replace(/\n/g, "").trim()
+          }
+        } else if (section === "ОБЪЯСНЕНИЕ") {
+          // Следующий элемент после заголовка - это содержимое
+          if (i + 1 < sections.length) {
+            explanation = sections[i + 1].replace(/\n/g, "").trim()
+          }
+        }
+      }
+
+      return {
+        wordTranslation: wordTranslation || "Перевод недоступен",
+        sentenceTranslation: sentenceTranslation || "Перевод недоступен",
+        explanation: explanation || "Объяснение недоступно",
+      }
+    } catch (error) {
+      console.error("Ошибка при получении данных о слове:", error)
+      throw error
+    }
+  }
 }
 
 const API_URL = "https://api.groq.com/openai/v1/chat/completions"
