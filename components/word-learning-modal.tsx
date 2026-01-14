@@ -194,7 +194,6 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
         setSentenceTranslation(cached.sentenceTranslation)
         setWordExplanation(cached.explanation)
         setIsLoading(false)
-        console.log("Использован кэшированный перевод для:", currentWord.word)
         return
       }
 
@@ -206,28 +205,40 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
         throw new Error("API ключ Groq не настроен")
       }
 
-      // Загружаем все данные параллельно
-      const [wordTrans, sentTrans, explanation] = await Promise.all([
-        GroqAPI.translateText(currentWord.word, currentWord.sentence),
-        GroqAPI.translateSentence(currentWord.sentence, apiKey),
-        GroqAPI.explainWordInContext(currentWord.word, currentWord.sentence),
-      ])
+      // Загружаем все данные одним запросом
+      const wordData = await GroqAPI.getWordDataComplete(
+        currentWord.word,
+        currentWord.sentence,
+        apiKey
+      )
 
       // Сохраняем в кэш
       TranslationCache.saveTranslation(
         currentWord.word,
         currentWord.sentence,
-        wordTrans,
-        sentTrans,
-        explanation
+        wordData.wordTranslation,
+        wordData.sentenceTranslation,
+        wordData.explanation
       )
 
-      setWordTranslation(wordTrans)
-      setSentenceTranslation(sentTrans)
-      setWordExplanation(explanation)
-      console.log("Перевод загружен и сохранен в кэш для:", currentWord.word)
+      setWordTranslation(wordData.wordTranslation)
+      setSentenceTranslation(wordData.sentenceTranslation)
+      setWordExplanation(wordData.explanation)
     } catch (err) {
       console.error("Translation error:", err)
+
+      // Проверяем на ошибку 429 (Too Many Requests)
+      if (err instanceof Error && err.message.includes("429")) {
+        setError("Слишком много запросов. Повторная попытка через 2 секунды...")
+        // Автоматически повторяем запрос через 2 секунды
+        setTimeout(() => {
+          if (isOpen && currentWord) {
+            loadTranslation()
+          }
+        }, 2000)
+        return
+      }
+
       setError("Ошибка при загрузке перевода")
       setWordTranslation(null)
       setSentenceTranslation(null)
@@ -272,14 +283,14 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
   useEffect(() => {
     if (isOpen && isInitialMount.current) {
       // Загружаем перевод для первого слова
-      setTimeout(() => {
-        loadTranslation()
-      }, 0)
+      loadTranslation()
       isInitialMount.current = false
     }
   }, [isOpen, loadTranslation])
 
   const handleNext = () => {
+    if (isLoading) return // Блокируем переход во время загрузки
+
     if (currentIndex < currentWords.length - 1) {
       // Обновляем индекс но НЕ сбрасываем переводы
       setCurrentIndex((prev) => prev + 1)
@@ -293,6 +304,8 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
   }
 
   const handlePrevious = () => {
+    if (isLoading) return // Блокируем переход во время загрузки
+
     if (currentIndex > 0) {
       // Обновляем индекс но НЕ сбрасываем переводы
       setCurrentIndex((prev) => prev - 1)
@@ -327,11 +340,9 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
     setCurrentIndex(0)
     // НЕ сбрасываем переводы - пусть остаются на месте во время загрузки
     // Загружаем перевод для первого слова новой страницы
-    setTimeout(() => {
-      if (isOpen && words.length > 0 && currentWords.length > 0) {
-        loadTranslation()
-      }
-    }, 0)
+    if (isOpen && words.length > 0 && currentWords.length > 0) {
+      loadTranslation()
+    }
   }, [currentPage, isOpen, words.length, currentWords.length])
 
   // Reset to first page when words per page changes
@@ -343,11 +354,9 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
     // Save to localStorage
     localStorage.setItem("wordLearningWordsPerPage", newWordsPerPage.toString())
     // Загружаем перевод для первого слова
-    setTimeout(() => {
-      if (isOpen && words.length > 0) {
-        loadTranslation()
-      }
-    }, 0)
+    if (isOpen && words.length > 0) {
+      loadTranslation()
+    }
   }
 
   // Handle page navigation
@@ -356,11 +365,9 @@ export function WordLearningModal({ words, isOpen, onClose }: WordLearningModalP
       setCurrentPage(newPage)
       // Reset index but НЕ сбрасываем переводы
       setCurrentIndex(0)
-      setTimeout(() => {
-        if (isOpen && words.length > 0) {
-          loadTranslation()
-        }
-      }, 0)
+      if (isOpen && words.length > 0) {
+        loadTranslation()
+      }
     }
   }
 
